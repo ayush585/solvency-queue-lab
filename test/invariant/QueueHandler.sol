@@ -62,7 +62,7 @@ contract QueueHandler is Test {
         uint256 requestId = queue.nextToProcess();
         if (requestId >= queue.requestCount()) return;
 
-        (, , address recipient, uint256 amount) = queue.requests(requestId);
+        (,, address recipient, uint256 amount) = queue.requests(requestId);
         (, bool success) = queue.processNext();
 
         if (success) {
@@ -79,7 +79,7 @@ contract QueueHandler is Test {
         uint256 requestId = requestSeed % count;
         if (queue.statusOf(requestId) != ForcedWithdrawalQueue.Status.Failed) return;
 
-        (, , address recipient, uint256 amount) = queue.requests(requestId);
+        (,, address recipient, uint256 amount) = queue.requests(requestId);
         bool success = queue.retryFailed(requestId);
 
         if (success) {
