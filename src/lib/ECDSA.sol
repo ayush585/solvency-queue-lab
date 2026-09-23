@@ -13,8 +13,14 @@ library ECDSA {
     uint256 internal constant SECP256K1_HALF_ORDER =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
-    function recover(bytes32 digest, bytes memory signature) internal pure returns (address signer) {
-        if (signature.length != 65) revert InvalidSignatureLength(signature.length);
+    function recover(bytes32 digest, bytes memory signature)
+        internal
+        pure
+        returns (address signer)
+    {
+        if (signature.length != 65) {
+            revert InvalidSignatureLength(signature.length);
+        }
 
         bytes32 r;
         bytes32 s;
