@@ -14,16 +14,14 @@ interface IBaseUSDC {
 /// @title BaseForkTest
 /// @notice Integration tests against canonical native USDC on a live Base Mainnet fork.
 contract BaseForkTest is Test {
-    address internal constant BASE_USDC =
-        0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address internal constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     uint256 internal constant BASE_CHAIN_ID = 8453;
 
     Pool internal pool;
     address internal alice = makeAddr("alice");
 
     function setUp() public {
-        string memory rpcUrl =
-            vm.envOr("BASE_RPC_URL", string("https://mainnet.base.org"));
+        string memory rpcUrl = vm.envOr("BASE_RPC_URL", string("https://mainnet.base.org"));
 
         vm.createSelectFork(rpcUrl);
         pool = new Pool();
