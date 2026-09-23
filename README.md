@@ -660,3 +660,47 @@ A delayed bad implementation still corrupts state when executed.
 OpenZeppelin Contracts v5.7.0
 Foundry v1.8.3
 ```
+
+
+## Milestone 10 — Base Mainnet fork integration
+
+The lab now has a dedicated fork-testing gate against live Base Mainnet state.
+
+Fork target:
+
+```text
+chain ID: 8453
+default RPC: https://mainnet.base.org
+canonical native USDC:
+0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+```
+
+The fork tests verify:
+
+- the selected fork is actually Base Mainnet;
+- canonical Base USDC has deployed runtime code;
+- the live contract reports `USDC` and 6 decimals;
+- the hardened Pool can approve, deposit, account for, and withdraw against the real deployed USDC implementation;
+- the Pool credits the exact observed balance delta;
+- Pool liabilities remain equal to real USDC backing after deposit and withdrawal.
+
+Foundry's token `deal` cheatcode is used only to seed a fork-local test balance. The ERC-20 code path exercised by approvals/transfers is the actual Base deployment.
+
+CI keeps fork integration separate from deterministic local tests:
+
+```bash
+forge test --no-match-path 'test/fork/*.t.sol' -vv
+forge test --match-path 'test/fork/*.t.sol' -vv
+```
+
+Verified CI result:
+
+```text
+local unit/fuzz/invariant tests:
+89 passed / 0 failed
+
+Base Mainnet fork:
+3 passed / 0 failed
+```
+
+The fork gate is intentionally small: it proves that the accounting assumptions survive contact with a real Base asset without turning the entire test suite into an RPC-dependent integration suite.

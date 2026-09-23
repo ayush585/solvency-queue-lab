@@ -408,3 +408,31 @@ implementation validation / storage-layout review
 ```
 
 The test suite deliberately schedules and executes a storage-incompatible implementation to prove this distinction.
+
+
+## Base Mainnet fork boundary
+
+Mocks are useful for adversarial behavior, but they cannot prove compatibility with a live deployed token.
+
+The fork suite therefore executes the hardened Pool against canonical native Base USDC.
+
+Properties checked on live fork state:
+
+1. chain identity is Base Mainnet (8453);
+2. the configured USDC address contains deployed code;
+3. token precision is 6 decimals;
+4. requested standard-USDC deposit equals actual received balance delta;
+5. internal liabilities equal USDC held by Pool after deposit;
+6. withdrawal reduces liabilities and real token backing by the same amount.
+
+### Fork-local state mutation
+
+The test seeds USDC to a synthetic account with Foundry's fork-local `deal` cheatcode.
+
+This does not claim that the synthetic account owns those assets on real Base. It changes only the ephemeral fork state so the test can exercise the live token implementation deterministically.
+
+### RPC trust boundary
+
+The public Base RPC is an external dependency of this integration gate.
+
+A production CI setup could pin a specific block and use a dedicated authenticated RPC provider for stronger reproducibility and availability. Local unit/fuzz/invariant tests remain independent of RPC availability.
