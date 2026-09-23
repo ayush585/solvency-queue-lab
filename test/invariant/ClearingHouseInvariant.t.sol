@@ -17,13 +17,7 @@ contract ClearingHouseInvariantTest is StdInvariant, Test {
 
     function setUp() public {
         token = new MockERC20("Settlement Token", "SET");
-        engine = new PerpClearingHouse(
-            address(token),
-            counterparty,
-            1_000,
-            500,
-            100
-        );
+        engine = new PerpClearingHouse(address(token), counterparty, 1_000, 500, 100);
 
         actors.push(makeAddr("alice"));
         actors.push(makeAddr("bob"));
@@ -55,9 +49,8 @@ contract ClearingHouseInvariantTest is StdInvariant, Test {
     }
 
     function invariant_allMintedTokensRemainAccountedFor() public view {
-        uint256 accounted =
-            token.balanceOf(address(engine)) + token.balanceOf(counterparty)
-                + token.balanceOf(address(handler));
+        uint256 accounted = token.balanceOf(address(engine)) + token.balanceOf(counterparty)
+            + token.balanceOf(address(handler));
 
         for (uint256 i; i < actors.length; ++i) {
             accounted += token.balanceOf(actors[i]);
