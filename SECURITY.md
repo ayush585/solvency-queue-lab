@@ -138,3 +138,38 @@ Not yet implemented:
 - cross-chain message proofs.
 
 Those are subsequent milestones.
+
+
+## Isolated perpetual risk
+
+The perp-risk module introduces signed linear position accounting.
+
+Security properties:
+
+1. positive size is long and negative size is short;
+2. long/short PnL is symmetric for equal and opposite positions;
+3. PnL is zero when mark price equals entry price;
+4. a position cannot open below initial margin;
+5. collateral cannot be removed if resulting equity falls below initial margin;
+6. liquidation is allowed only when equity is at or below maintenance margin;
+7. exact maintenance-margin equality is treated as liquidatable;
+8. extreme notional/price inputs are rejected before state storage and before unsafe multiplication.
+
+### Risk-only limitation
+
+`IsolatedMarginBook` intentionally separates **risk eligibility** from **financial settlement**.
+
+Closing a liquidatable position currently changes risk state only. It does not decide who absorbs losses or how remaining collateral is distributed.
+
+The next security boundary is therefore:
+
+```text
+liquidation equity >= 0
+    => residual collateral allocation + liquidation fee
+
+liquidation equity < 0
+    => bad debt
+    => insurance fund / explicit loss waterfall
+```
+
+Until that layer exists, the module must not be described as a production liquidation engine.
