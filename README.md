@@ -2,7 +2,7 @@
 
 A Foundry security lab for money-moving smart-contract state machines.
 
-The project focuses on security properties that matter in custody, settlement, withdrawal, and queue-driven DeFi systems.
+The project focuses on security properties that matter in custody, settlement, withdrawal, and perpetual-DEX systems.
 
 ## Milestone 1 — solvency accounting
 
@@ -26,17 +26,7 @@ The hardened manager binds user, token, recipient, amount, nonce, deadline, chai
 
 `VulnerableForcedWithdrawalQueue.sol` advances only after a successful FIFO withdrawal. A blacklisted head recipient therefore freezes every later request.
 
-`ForcedWithdrawalQueue.sol` isolates failures:
-
-```text
-Pending -> Processing -> Processed
-                     \
-                      -> Failed -> retry -> Processed
-                               \
-                                -> Failed
-```
-
-Global FIFO progress continues, failed claims remain intact in Pool, and failed requests can be retried independently.
+`ForcedWithdrawalQueue.sol` isolates failures, preserves failed claims, advances global FIFO progress, and allows failed requests to be retried without rewinding the queue.
 
 ## Milestone 4 — sequencer settlement trust boundary
 
@@ -56,20 +46,59 @@ liabilities > assets
 attacker withdraws victim-backed real tokens
 ```
 
-The batch nonce was correct the entire time.
+The hardened lab requires one-time backed deposit receipts and zero-sum P/L in a deliberately closed settlement model.
 
-`SettlementVerifier.sol` adds two deliberately narrow economic checks:
+## Milestone 5 — isolated perp risk and liquidation math
 
-1. cross-chain credits must consume one-time `DepositInbox` receipts whose assets already reached Pool;
-2. P/L updates in this closed-system model must sum to zero.
+This milestone adds the first actual perpetual risk model.
 
-`DepositInbox.sol` measures the actual assets delivered to Pool before creating a creditable receipt, and each receipt can be consumed once.
+`PerpRisk.sol` uses 18-decimal USD units with signed position size:
 
-### Important modeling boundary
+```text
+size > 0 => long
+size < 0 => short
 
-Zero-sum P/L is intentionally a **closed settlement model for this lab**. Real perpetual protocols also have explicit fee, funding, insurance-fund, liquidation, LP/market-maker, and bad-debt accounts. Those flows must be represented as named counterparties or conservation terms rather than simply assuming every production batch sums to zero.
+unrealized P/L
+    = sizeUsd × (markPrice - entryPrice) / entryPrice
 
-That richer perp accounting model is the next stage.
+equity
+    = collateral + unrealized P/L
+
+margin requirement
+    = abs(sizeUsd) × marginBps / 10,000
+```
+
+`IsolatedMarginBook.sol` adds:
+
+- initial-margin checks at position open;
+- maintenance-margin calculations;
+- isolated collateral additions;
+- collateral-removal checks using current mark-price equity;
+- liquidation eligibility;
+- explicit notional / price bounds so extreme stored inputs cannot later make risk checks unusable.
+
+The lab defines a position as liquidatable when:
+
+```text
+equity <= maintenance margin
+```
+
+The equality case is an explicit conservative boundary chosen for this lab, not a claim that every production perp protocol uses the same exact comparison operator.
+
+### Modeling boundary
+
+This milestone models **risk eligibility**, not asset settlement.
+
+Liquidation currently closes risk state but does not yet distribute:
+
+- remaining collateral;
+- liquidation fees;
+- funding;
+- protocol fees;
+- insurance-fund transfers;
+- bad debt.
+
+Those value flows belong in the next milestone so their conservation rules are explicit instead of hidden inside the risk formula.
 
 ## Verification
 
@@ -83,59 +112,22 @@ forge test -vv
 
 Current verified suite:
 
-- **34 / 34 tests passing**;
-- two 1,000-run fuzz tests;
+- **46 / 46 tests passing**;
+- four 1,000-run fuzz tests total;
+- **12 / 12 isolated-margin risk tests passing**;
+- long / short P/L symmetry fuzzed for 1,000 runs;
+- zero P/L at entry fuzzed for 1,000 runs;
+- exact maintenance-margin boundary tested;
+- initial-margin and collateral-removal protections tested;
 - fee-on-transfer insolvency exploit reproduced;
 - signed-withdrawal replay exploit reproduced;
 - blacklisted FIFO head-of-line freeze reproduced;
 - fake sequencer cross-chain-credit drain reproduced;
-- EIP-712 replay/domain-separation coverage;
-- retryable queue failure isolation;
 - Pool stateful invariants: **256 runs / 16,384 calls / 0 reverts**;
 - Queue stateful invariants: **256 runs / 16,384 calls / 0 reverts**;
 - Settlement stateful invariants: **256 runs / 16,384 calls / 0 reverts**.
 
-Settlement invariants cover:
-
-```text
-Pool liabilities == Pool backing assets
-
-sum known user claims == total liabilities
-
-next batch nonce == successful batch count
-```
-
-while randomly exercising backed credits, zero-sum P/L redistribution, and withdrawals.
-
-## Repository map
-
-```text
-src/
-  Pool.sol
-  VulnerablePool.sol
-  WithdrawalManager.sol
-  VulnerableWithdrawalManager.sol
-  ForcedWithdrawalQueue.sol
-  VulnerableForcedWithdrawalQueue.sol
-  DepositInbox.sol
-  SettlementVerifier.sol
-  VulnerableSettlementVerifier.sol
-  interfaces/
-  lib/
-  mocks/
-
-test/
-  deterministic exploit / hardening tests
-  invariant/
-    PoolHandler.sol
-    PoolInvariant.t.sol
-    QueueHandler.sol
-    QueueInvariant.t.sol
-    SettlementHandler.sol
-    SettlementInvariant.t.sol
-```
-
-## Core invariants
+## Core invariants and properties
 
 ### Solvency
 
@@ -161,26 +153,42 @@ one valid signed nonce => at most one successful withdrawal
 a failed request cannot permanently block a later valid request
 ```
 
-### Backed credit conservation
+### Backed settlement credit
 
 ```text
 new cross-chain liability requires previously delivered backing assets
 ```
 
-### Closed-system settlement conservation
+### Closed settlement conservation
 
 ```text
 sum(P/L deltas) == 0
 ```
 
+### Perp P/L symmetry
+
+For equal and opposite linear positions at the same entry/mark:
+
+```text
+long P/L == -short P/L
+```
+
+### Liquidation threshold
+
+```text
+liquidatable <=> equity <= maintenance margin
+```
+
+for this isolated-margin lab model.
+
 ## Roadmap
 
 Next:
 
-1. explicit perp collateral / margin / PnL accounting;
-2. funding and fee system accounts;
-3. maintenance margin and liquidation;
-4. bad debt / insurance-fund behavior;
+1. liquidation settlement + insurance fund + bad debt;
+2. explicit trading / liquidation fees;
+3. funding-payment system accounts;
+4. oracle freshness / price sanity;
 5. Base fork tests;
 6. UUPS / storage-layout upgrade safety;
 7. emergency pause / graceful degradation.
