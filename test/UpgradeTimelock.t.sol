@@ -37,6 +37,9 @@ contract UpgradeTimelockTest is Test {
 
         timelock = new TimelockController(DELAY, proposers, executors, admin);
 
+        vm.prank(admin);
+        timelock.grantRole(timelock.CANCELLER_ROLE(), proposer);
+
         bytes memory initData =
             abi.encodeCall(UpgradeVaultV1.initialize, (address(timelock), 1_500));
 
