@@ -35,10 +35,8 @@ contract VulnerableSettlementVerifierTest is Test {
 
         VulnerableSettlementVerifier.CrossChainCredit[] memory credits =
             new VulnerableSettlementVerifier.CrossChainCredit[](1);
-        credits[0] = VulnerableSettlementVerifier.CrossChainCredit({
-            user: attacker,
-            amount: 1_000 ether
-        });
+        credits[0] =
+            VulnerableSettlementVerifier.CrossChainCredit({user: attacker, amount: 1_000 ether});
 
         vm.prank(sequencer);
         verifier.submitBatch(0, pnl, credits);
@@ -64,9 +62,7 @@ contract VulnerableSettlementVerifierTest is Test {
         // Replay protection still works; it simply did not prove the batch was economically valid.
         vm.prank(sequencer);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                VulnerableSettlementVerifier.InvalidBatchNonce.selector, 1, 0
-            )
+            abi.encodeWithSelector(VulnerableSettlementVerifier.InvalidBatchNonce.selector, 1, 0)
         );
         verifier.submitBatch(0, pnl, credits);
     }
