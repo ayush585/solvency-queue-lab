@@ -52,6 +52,33 @@ The manager:
 
 The Pool exposes `withdrawFor` only to explicitly authorized withdrawal operators. Direct callers cannot bypass the manager.
 
+## Milestone 3 — forced-withdrawal queue liveness
+
+The third failure class is FIFO head-of-line blocking.
+
+`VulnerableForcedWithdrawalQueue.sol` advances its queue cursor only after the Pool withdrawal succeeds. If request 0 targets a recipient rejected by the token, the external call reverts, the cursor stays at 0, and every valid request behind it remains frozen.
+
+`ForcedWithdrawalQueue.sol` isolates that failure:
+
+```text
+Pending -> Processing -> Processed
+                     \
+                      -> Failed -> retry -> Processed
+                               \
+                                -> Failed
+```
+
+The hardened queue:
+
+- advances global FIFO progress even when one withdrawal fails;
+- records failed requests instead of silently dropping them;
+- leaves the failed user's Pool claim untouched because the failed Pool call reverts atomically;
+- allows failed requests to be retried later without rewinding the queue;
+- prevents processed entries from being retried;
+- uses a reentrancy guard around processing and retries.
+
+`BlacklistToken.sol` models recipient-specific transfer failure such as a blacklisted stablecoin address.
+
 ## Repository map
 
 ```text
@@ -60,6 +87,8 @@ src/
   VulnerablePool.sol
   WithdrawalManager.sol
   VulnerableWithdrawalManager.sol
+  ForcedWithdrawalQueue.sol
+  VulnerableForcedWithdrawalQueue.sol
   interfaces/
   lib/
     ECDSA.sol
@@ -67,15 +96,20 @@ src/
   mocks/
     MockERC20.sol
     FeeOnTransferToken.sol
+    BlacklistToken.sol
 
 test/
   Pool.t.sol
   VulnerablePool.t.sol
   WithdrawalManager.t.sol
   VulnerableWithdrawalManager.t.sol
+  ForcedWithdrawalQueue.t.sol
+  VulnerableForcedWithdrawalQueue.t.sol
   invariant/
     PoolHandler.sol
     PoolInvariant.t.sol
+    QueueHandler.sol
+    QueueInvariant.t.sol
 ```
 
 ## Verification
@@ -88,21 +122,21 @@ forge build
 forge test -vv
 ```
 
-Current verified coverage includes:
+Current verified coverage:
 
+- **25 / 25 tests passing**;
 - deterministic fee-on-transfer insolvency exploit;
 - deterministic signed-withdrawal replay exploit;
+- deterministic blacklisted-head FIFO freeze;
 - two 1,000-run fuzz tests;
-- three stateful solvency/accounting invariants over 256 runs and 16,384 calls;
-- relayer execution;
-- nonce replay rejection;
-- recipient tampering;
-- expired signatures;
-- failed-withdrawal nonce rollback;
-- cross-contract replay protection;
-- cross-chain replay protection;
+- three Pool invariants across **256 runs / 16,384 calls / 0 reverts**;
+- five queue invariants across **256 runs / 16,384 calls / 0 reverts**;
+- relayer execution and nonce replay protection;
+- cross-contract and cross-chain EIP-712 replay protection;
 - ECDSA high-s malleability rejection;
-- withdrawal-operator access control.
+- failed queue entry isolation;
+- successful processing behind a failed head;
+- failed-request retry and claim preservation.
 
 ## Core invariants
 
@@ -131,16 +165,36 @@ authorization for contract A / chain X
 must not authorize contract B / chain Y
 ```
 
+### Queue monotonicity
+
+```text
+0 <= nextToProcess <= requestCount
+nextToProcess never decreases
+```
+
+### Queue failure isolation
+
+```text
+failure(request[i])
+must not permanently block valid request[j > i]
+```
+
+### Queue accounting conservation
+
+```text
+deposits = outstanding claims + successful payouts
+```
+
 ## Roadmap
 
 Next milestones:
 
-1. Forced-withdrawal queue with liveness invariants.
-2. Blacklisted-recipient / head-of-line blocking attack.
-3. Reentrant and false-returning ERC-20 mocks.
-4. Stateful queue fuzzing with handler/ghost variables.
-5. Base fork tests.
-6. Emergency pause / graceful-withdrawal semantics.
+1. Reentrant and false-returning ERC-20 mocks.
+2. Queue failure-reason / bounded-gas hardening.
+3. Base fork tests.
+4. Emergency pause / graceful-withdrawal semantics.
+5. UUPS / storage-layout upgrade safety.
+6. Perp collateral and liquidation accounting.
 
 ## Disclaimer
 
