@@ -60,7 +60,7 @@ contract IsolatedMarginBookTest is Test {
         assertEq(accountEquity, 500 ether);
         assertEq(maintenance, 500 ether);
 
-        (, , , bool open) = book.positions(alice);
+        (,,, bool open) = book.positions(alice);
         assertFalse(open);
 
         vm.expectRevert(IsolatedMarginBook.PositionNotOpen.selector);
@@ -72,9 +72,7 @@ contract IsolatedMarginBookTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IsolatedMarginBook.NotLiquidatable.selector,
-                int256(510 ether),
-                500 ether
+                IsolatedMarginBook.NotLiquidatable.selector, int256(510 ether), 500 ether
             )
         );
         book.liquidate(alice, 951 ether);
@@ -84,9 +82,7 @@ contract IsolatedMarginBookTest is Test {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IsolatedMarginBook.InitialMarginTooLow.selector,
-                1_000 ether,
-                999 ether
+                IsolatedMarginBook.InitialMarginTooLow.selector, 1_000 ether, 999 ether
             )
         );
         book.openPosition(10_000 ether, 1_000 ether, 999 ether);
@@ -98,9 +94,7 @@ contract IsolatedMarginBookTest is Test {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IsolatedMarginBook.CollateralRemovalUnsafe.selector,
-                int256(999 ether),
-                1_000 ether
+                IsolatedMarginBook.CollateralRemovalUnsafe.selector, int256(999 ether), 1_000 ether
             )
         );
         book.removeCollateral(1 ether, 1_000 ether);
@@ -124,11 +118,9 @@ contract IsolatedMarginBookTest is Test {
         book.openPosition(int256(1e36 + 1), 1_000 ether, 1e36);
     }
 
-    function testFuzz_longShortPnlSymmetry(
-        uint128 rawSize,
-        uint128 rawEntry,
-        uint128 rawMark
-    ) public {
+    function testFuzz_longShortPnlSymmetry(uint128 rawSize, uint128 rawEntry, uint128 rawMark)
+        public
+    {
         uint256 size = bound(uint256(rawSize), 100 ether, 1e30);
         uint256 entry = bound(uint256(rawEntry), 1 ether, 1e24);
         uint256 mark = bound(uint256(rawMark), 1 ether, 1e24);
@@ -136,10 +128,7 @@ contract IsolatedMarginBookTest is Test {
         _open(alice, int256(size), entry, size);
         _open(bob, -int256(size), entry, size);
 
-        assertEq(
-            book.unrealizedPnl(alice, mark),
-            -book.unrealizedPnl(bob, mark)
-        );
+        assertEq(book.unrealizedPnl(alice, mark), -book.unrealizedPnl(bob, mark));
     }
 
     function testFuzz_pnlIsZeroAtEntry(uint128 rawSize, uint128 rawEntry) public {
