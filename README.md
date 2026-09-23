@@ -2,83 +2,109 @@
 
 A Foundry security lab for money-moving smart-contract state machines.
 
-The project starts from one invariant that matters in any custody/accounting protocol:
+The project focuses on security properties that matter in custody, settlement, withdrawal, and queue-driven DeFi systems.
+
+## Milestone 1 — solvency accounting
+
+The first invariant is:
 
 ```text
 internal liabilities <= assets actually controlled by the contract
 ```
 
-The first vulnerable implementation breaks that invariant by crediting the requested ERC-20 transfer amount instead of the amount actually received. A fee-on-transfer token creates immediate undercollateralization.
+The vulnerable implementation credits the requested ERC-20 transfer amount instead of the amount actually received. A fee-on-transfer token therefore creates immediate undercollateralization.
 
-The hardened implementation:
+The hardened Pool:
 
 - measures deposit balance deltas;
 - credits only assets actually received;
 - rejects outgoing token behavior that does not deliver the exact debited amount;
 - relies on EVM atomicity so failed withdrawals preserve claims;
-- is exercised with deterministic exploit tests, fuzz tests, and stateful invariant tests.
+- is exercised with deterministic exploit tests, fuzz tests, and stateful invariants.
+
+## Milestone 2 — EIP-712 signed withdrawals
+
+The second failure class is authorization replay.
+
+`VulnerableWithdrawalManager.sol` signs a nonce but never checks or consumes it. A relayer can submit the exact same valid signature twice and withdraw twice.
+
+`WithdrawalManager.sol` hardens the flow by binding:
+
+```text
+user
+token
+recipient
+amount
+nonce
+deadline
+chainId
+verifyingContract
+```
+
+The manager:
+
+- checks and consumes a per-user nonce;
+- allows third-party relayers;
+- rejects expired authorizations;
+- domain-separates signatures by chain and contract;
+- rejects ECDSA high-s malleable signatures;
+- consumes the nonce before the external Pool call while relying on transaction atomicity to roll it back if the Pool reverts.
+
+The Pool exposes `withdrawFor` only to explicitly authorized withdrawal operators. Direct callers cannot bypass the manager.
 
 ## Repository map
 
 ```text
 src/
-  VulnerablePool.sol
   Pool.sol
-  interfaces/IERC20Minimal.sol
-  lib/SafeTransferLib.sol
-  mocks/MockERC20.sol
-  mocks/FeeOnTransferToken.sol
+  VulnerablePool.sol
+  WithdrawalManager.sol
+  VulnerableWithdrawalManager.sol
+  interfaces/
+  lib/
+    ECDSA.sol
+    SafeTransferLib.sol
+  mocks/
+    MockERC20.sol
+    FeeOnTransferToken.sol
 
 test/
-  VulnerablePool.t.sol
   Pool.t.sol
+  VulnerablePool.t.sol
+  WithdrawalManager.t.sol
+  VulnerableWithdrawalManager.t.sol
   invariant/
     PoolHandler.sol
     PoolInvariant.t.sol
 ```
 
-## What the exploit demonstrates
+## Verification
 
-For a token charging a 10% transfer fee:
-
-```text
-user requests deposit: 1,000
-pool actually receives:   900
-naive internal credit:  1,000
-```
-
-Result:
-
-```text
-liabilities = 1,000
-assets      =   900
-```
-
-The contract is insolvent immediately even though every Solidity call succeeded.
-
-## Install
-
-This repo targets Foundry v1.8.3.
+CI uses Foundry v1.8.3 and runs:
 
 ```bash
-forge install foundry-rs/forge-std --no-commit
+forge fmt --check
 forge build
 forge test -vv
 ```
 
-For the stateful invariant suite:
+Current verified coverage includes:
 
-```bash
-forge test --match-contract PoolInvariantTest -vv
-```
+- deterministic fee-on-transfer insolvency exploit;
+- deterministic signed-withdrawal replay exploit;
+- two 1,000-run fuzz tests;
+- three stateful solvency/accounting invariants over 256 runs and 16,384 calls;
+- relayer execution;
+- nonce replay rejection;
+- recipient tampering;
+- expired signatures;
+- failed-withdrawal nonce rollback;
+- cross-contract replay protection;
+- cross-chain replay protection;
+- ECDSA high-s malleability rejection;
+- withdrawal-operator access control.
 
-For a failing trace or deeper inspection:
-
-```bash
-forge test -vvvv
-```
-
-## Current invariants
+## Core invariants
 
 ### Solvency
 
@@ -89,30 +115,32 @@ sum user claims <= pool token holdings
 ### Failed withdrawal conservation
 
 ```text
-failed withdrawal => claim unchanged and pool backing unchanged
+failed withdrawal => user claim and backing remain unchanged
 ```
 
-### Closed-system accounting
-
-Under this test harness, where nobody transfers tokens directly to the Pool:
+### Signed authorization uniqueness
 
 ```text
-totalLiabilities == pool token holdings
+one valid signed nonce => at most one successful withdrawal
 ```
 
-The equality is stronger than the production solvency invariant and makes accounting drift easier to detect.
+### Domain separation
+
+```text
+authorization for contract A / chain X
+must not authorize contract B / chain Y
+```
 
 ## Roadmap
 
-Next milestones intentionally mirror failure classes relevant to high-value DeFi systems:
+Next milestones:
 
-1. EIP-712 withdrawal authorization + nonce replay resistance.
-2. Forced-withdrawal queue with liveness invariants.
-3. Blacklisted-recipient / head-of-line blocking attack.
-4. Reentrant and false-returning ERC-20 mocks.
-5. Stateful queue fuzzing with handler/ghost variables.
-6. Base fork tests.
-7. Emergency pause / graceful-withdrawal semantics.
+1. Forced-withdrawal queue with liveness invariants.
+2. Blacklisted-recipient / head-of-line blocking attack.
+3. Reentrant and false-returning ERC-20 mocks.
+4. Stateful queue fuzzing with handler/ghost variables.
+5. Base fork tests.
+6. Emergency pause / graceful-withdrawal semantics.
 
 ## Disclaimer
 
