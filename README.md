@@ -608,3 +608,55 @@ and tests the observed state behavior behind a real ERC-1967 proxy.
 OpenZeppelin Contracts v5.7.0
 Foundry v1.8.3
 ```
+
+
+## Milestone 9 — timelocked upgrade governance
+
+The proxy owner is moved from a directly callable EOA to OpenZeppelin `TimelockController`.
+
+Governance roles are explicit:
+
+```text
+proposer
+  -> schedules upgrade
+
+canceller
+  -> may cancel scheduled operation
+
+executor
+  -> executes only after minDelay
+
+timelock contract
+  -> is the UUPS proxy owner
+```
+
+The lab uses a two-day minimum delay.
+
+Verified:
+
+- direct EOAs cannot bypass the timelock and call UUPS upgrade authority;
+- unauthorized accounts cannot schedule upgrades;
+- scheduled upgrades cannot execute before the delay;
+- unscheduled operations cannot execute even after arbitrary time passes;
+- explicitly cancelled upgrades cannot execute;
+- a delayed safe V2 upgrade preserves V1 state;
+- V2 initialization can execute atomically inside `upgradeToAndCall`;
+- a timelock does **not** make an incompatible implementation safe.
+
+The last point is deliberate:
+
+```text
+governance delay
+!=
+storage-layout validation
+```
+
+A delayed bad implementation still corrupts state when executed.
+
+### Current full verification
+
+```text
+89 / 89 tests passing
+OpenZeppelin Contracts v5.7.0
+Foundry v1.8.3
+```
