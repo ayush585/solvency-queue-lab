@@ -5,6 +5,8 @@ pragma solidity ^0.8.28;
 /// @notice Linear-perpetual risk math using 18-decimal USD units.
 library PerpRisk {
     uint256 internal constant BPS = 10_000;
+    uint256 internal constant MAX_NOTIONAL_USD = 1e36;
+    uint256 internal constant MAX_PRICE = 1e30;
 
     error ZeroEntryPrice();
     error ValueTooLarge();
@@ -23,6 +25,11 @@ library PerpRisk {
     {
         if (entryPrice == 0) revert ZeroEntryPrice();
         if (entryPrice > uint256(type(int256).max) || markPrice > uint256(type(int256).max)) {
+            revert ValueTooLarge();
+        }
+
+        uint256 absoluteSize = notional(sizeUsd);
+        if (absoluteSize > MAX_NOTIONAL_USD || entryPrice > MAX_PRICE || markPrice > MAX_PRICE) {
             revert ValueTooLarge();
         }
 
