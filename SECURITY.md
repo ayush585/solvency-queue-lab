@@ -372,3 +372,39 @@ A proposed implementation must expose the expected ERC-1822/UUPS interface. A no
 This milestone intentionally uses a single owner as the upgrade authority.
 
 A production protocol should typically place that authority behind stronger governance such as a multisig, role system, and/or timelock. Delayed upgrade execution is the next governance layer for this lab.
+
+
+## Timelocked upgrade governance
+
+Upgrade authorization is now modeled as a multi-stage process rather than a single privileged EOA call.
+
+Security properties:
+
+1. only the proposer role may schedule an upgrade;
+2. only the designated executor may execute it;
+3. execution cannot occur before the configured minimum delay;
+4. unscheduled operations cannot execute;
+5. scheduled operations can be cancelled by an explicitly granted canceller role;
+6. the proxy itself recognizes only the timelock as upgrade owner;
+7. V2 reinitialization can be bundled atomically with the implementation change.
+
+### Governance-layer limitation
+
+The timelock guarantees *when* an authorized code change can happen.
+
+It does not guarantee that the proposed implementation is:
+
+- storage compatible;
+- economically safe;
+- bug free;
+- correctly initialized.
+
+Therefore upgrade safety requires both:
+
+```text
+governance controls
++
+implementation validation / storage-layout review
+```
+
+The test suite deliberately schedules and executes a storage-incompatible implementation to prove this distinction.
