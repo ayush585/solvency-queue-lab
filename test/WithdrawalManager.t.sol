@@ -58,9 +58,7 @@ contract WithdrawalManagerTest is Test {
         manager.withdrawWithSig(request, signature);
 
         vm.prank(relayer);
-        vm.expectRevert(
-            abi.encodeWithSelector(WithdrawalManager.InvalidNonce.selector, 1, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalManager.InvalidNonce.selector, 1, 0));
         manager.withdrawWithSig(request, signature);
 
         assertEq(manager.nonces(alice), 1);
@@ -106,9 +104,7 @@ contract WithdrawalManagerTest is Test {
         bytes memory signature = _sign(manager.digest(request));
 
         vm.prank(relayer);
-        vm.expectRevert(
-            abi.encodeWithSelector(WithdrawalManager.InvalidNonce.selector, 0, 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalManager.InvalidNonce.selector, 0, 1));
         manager.withdrawWithSig(request, signature);
 
         assertEq(manager.nonces(alice), 0);
