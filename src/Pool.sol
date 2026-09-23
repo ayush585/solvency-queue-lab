@@ -16,17 +16,17 @@ contract Pool {
     error UnexpectedTransferBehavior(uint256 expected, uint256 poolSpent, uint256 userReceived);
 
     event Deposited(
-        address indexed user,
-        address indexed token,
-        uint256 requestedAmount,
-        uint256 creditedAmount
+        address indexed user, address indexed token, uint256 requestedAmount, uint256 creditedAmount
     );
     event Withdrawn(address indexed user, address indexed token, uint256 amount);
 
     mapping(address token => mapping(address user => uint256 amount)) public balanceOf;
     mapping(address token => uint256 amount) public totalLiabilities;
 
-    function deposit(address token, uint256 requestedAmount) external returns (uint256 creditedAmount) {
+    function deposit(address token, uint256 requestedAmount)
+        external
+        returns (uint256 creditedAmount)
+    {
         if (requestedAmount == 0) revert ZeroAmount();
 
         uint256 assetsBefore = IERC20Minimal(token).balanceOf(address(this));
