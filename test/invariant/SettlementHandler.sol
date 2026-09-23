@@ -52,8 +52,9 @@ contract SettlementHandler is Test {
         bytes32[] memory deposits = new bytes32[](1);
         deposits[0] = depositId;
 
+        uint256 nonce = verifier.nextBatchNonce();
         vm.prank(sequencer);
-        verifier.submitBatch(verifier.nextBatchNonce(), pnl, deposits);
+        verifier.submitBatch(nonce, pnl, deposits);
         ++successfulBatches;
     }
 
@@ -73,8 +74,9 @@ contract SettlementHandler is Test {
 
         bytes32[] memory deposits = new bytes32[](0);
 
+        uint256 nonce = verifier.nextBatchNonce();
         vm.prank(sequencer);
-        verifier.submitBatch(verifier.nextBatchNonce(), pnl, deposits);
+        verifier.submitBatch(nonce, pnl, deposits);
         ++successfulBatches;
     }
 
