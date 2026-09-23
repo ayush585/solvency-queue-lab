@@ -64,8 +64,7 @@ contract FundingMarket {
 
         _accrue();
 
-        int256 checkpoint =
-            isLong ? cumulativeFundingPerSizeLong : cumulativeFundingPerSizeShort;
+        int256 checkpoint = isLong ? cumulativeFundingPerSizeLong : cumulativeFundingPerSizeShort;
 
         positions[msg.sender] = Position({
             isLong: isLong,
@@ -121,68 +120,60 @@ contract FundingMarket {
         }
 
         uint256 duration = block.timestamp - lastFundingTime;
-        uint256 absoluteRate = uint256(
-            fundingRatePerSecond > 0 ? fundingRatePerSecond : -fundingRatePerSecond
-        );
+        uint256 absoluteRate =
+            uint256(fundingRatePerSecond > 0 ? fundingRatePerSecond : -fundingRatePerSecond);
 
         if (fundingRatePerSecond > 0) {
-            uint256 transferUsd =
-                (totalLongOpenInterest * absoluteRate * duration) / PRECISION;
+            uint256 transferUsd = (totalLongOpenInterest * absoluteRate * duration) / PRECISION;
             if (transferUsd == 0) return (longIndex, shortIndex);
 
-            longIndex -=
-                int256((transferUsd * PRECISION) / totalLongOpenInterest);
-            shortIndex +=
-                int256((transferUsd * PRECISION) / totalShortOpenInterest);
+            longIndex -= int256((transferUsd * PRECISION) / totalLongOpenInterest);
+            shortIndex += int256((transferUsd * PRECISION) / totalShortOpenInterest);
         } else {
-            uint256 transferUsd =
-                (totalShortOpenInterest * absoluteRate * duration) / PRECISION;
+            uint256 transferUsd = (totalShortOpenInterest * absoluteRate * duration) / PRECISION;
             if (transferUsd == 0) return (longIndex, shortIndex);
 
-            shortIndex -=
-                int256((transferUsd * PRECISION) / totalShortOpenInterest);
-            longIndex +=
-                int256((transferUsd * PRECISION) / totalLongOpenInterest);
+            shortIndex -= int256((transferUsd * PRECISION) / totalShortOpenInterest);
+            longIndex += int256((transferUsd * PRECISION) / totalLongOpenInterest);
         }
     }
 
     function _accrue() internal {
         if (block.timestamp == lastFundingTime) return;
 
-        if (
-            fundingRatePerSecond == 0 || totalLongOpenInterest == 0
-                || totalShortOpenInterest == 0
-        ) {
+        if (fundingRatePerSecond == 0 || totalLongOpenInterest == 0 || totalShortOpenInterest == 0)
+        {
             lastFundingTime = block.timestamp;
             return;
         }
 
         uint256 duration = block.timestamp - lastFundingTime;
-        uint256 absoluteRate = uint256(
-            fundingRatePerSecond > 0 ? fundingRatePerSecond : -fundingRatePerSecond
-        );
+        uint256 absoluteRate =
+            uint256(fundingRatePerSecond > 0 ? fundingRatePerSecond : -fundingRatePerSecond);
 
         uint256 transferUsd;
 
         if (fundingRatePerSecond > 0) {
-            transferUsd =
-                (totalLongOpenInterest * absoluteRate * duration) / PRECISION;
+            transferUsd = (totalLongOpenInterest * absoluteRate * duration) / PRECISION;
 
             if (transferUsd != 0) {
-                cumulativeFundingPerSizeLong -=
-                    int256((transferUsd * PRECISION) / totalLongOpenInterest);
-                cumulativeFundingPerSizeShort +=
-                    int256((transferUsd * PRECISION) / totalShortOpenInterest);
+                cumulativeFundingPerSizeLong -= int256(
+                    (transferUsd * PRECISION) / totalLongOpenInterest
+                );
+                cumulativeFundingPerSizeShort += int256(
+                    (transferUsd * PRECISION) / totalShortOpenInterest
+                );
             }
         } else {
-            transferUsd =
-                (totalShortOpenInterest * absoluteRate * duration) / PRECISION;
+            transferUsd = (totalShortOpenInterest * absoluteRate * duration) / PRECISION;
 
             if (transferUsd != 0) {
-                cumulativeFundingPerSizeShort -=
-                    int256((transferUsd * PRECISION) / totalShortOpenInterest);
-                cumulativeFundingPerSizeLong +=
-                    int256((transferUsd * PRECISION) / totalLongOpenInterest);
+                cumulativeFundingPerSizeShort -= int256(
+                    (transferUsd * PRECISION) / totalShortOpenInterest
+                );
+                cumulativeFundingPerSizeLong += int256(
+                    (transferUsd * PRECISION) / totalLongOpenInterest
+                );
             }
         }
 
@@ -192,9 +183,8 @@ contract FundingMarket {
     }
 
     function _pendingFunding(Position memory position) internal view returns (int256) {
-        int256 current = position.isLong
-            ? cumulativeFundingPerSizeLong
-            : cumulativeFundingPerSizeShort;
+        int256 current =
+            position.isLong ? cumulativeFundingPerSizeLong : cumulativeFundingPerSizeShort;
         int256 deltaPerSize = current - position.fundingCheckpoint;
 
         return (int256(position.sizeUsd) * deltaPerSize) / int256(PRECISION);
