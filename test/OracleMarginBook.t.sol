@@ -58,9 +58,7 @@ contract OracleMarginBookTest is Test {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OracleGuard.FutureTimestamp.selector,
-                block.timestamp + 1,
-                block.timestamp
+                OracleGuard.FutureTimestamp.selector, block.timestamp + 1, block.timestamp
             )
         );
         book.openPosition(10_000 ether, 1_000 ether);
@@ -82,12 +80,7 @@ contract OracleMarginBookTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OracleGuard.StalePrice.selector,
-                updatedAt,
-                block.timestamp,
-                60
-            )
+            abi.encodeWithSelector(OracleGuard.StalePrice.selector, updatedAt, block.timestamp, 60)
         );
         book.openPosition(10_000 ether, 1_000 ether);
     }
@@ -131,10 +124,7 @@ contract OracleMarginBookTest is Test {
         } else {
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OracleGuard.StalePrice.selector,
-                    updatedAt,
-                    block.timestamp,
-                    60
+                    OracleGuard.StalePrice.selector, updatedAt, block.timestamp, 60
                 )
             );
             guard.validatedPrice();
