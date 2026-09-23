@@ -59,12 +59,7 @@ contract UpgradeTimelockTest is Test {
         vm.prank(attacker);
         vm.expectRevert();
         timelock.schedule(
-            address(vault),
-            0,
-            data,
-            bytes32(0),
-            keccak256("unauthorized-upgrade"),
-            DELAY
+            address(vault), 0, data, bytes32(0), keccak256("unauthorized-upgrade"), DELAY
         );
     }
 
@@ -111,9 +106,7 @@ contract UpgradeTimelockTest is Test {
         _schedule(data, salt);
 
         vm.prank(proposer);
-        timelock.cancel(
-            timelock.hashOperation(address(vault), 0, data, bytes32(0), salt)
-        );
+        timelock.cancel(timelock.hashOperation(address(vault), 0, data, bytes32(0), salt));
 
         vm.warp(block.timestamp + DELAY);
 
@@ -129,8 +122,7 @@ contract UpgradeTimelockTest is Test {
         vault.credit(alice, 777 ether);
 
         bytes memory data = abi.encodeCall(
-            UpgradeVaultV1.upgradeToAndCall,
-            (address(badImplementationV2), bytes(""))
+            UpgradeVaultV1.upgradeToAndCall, (address(badImplementationV2), bytes(""))
         );
         bytes32 salt = keccak256("bad-storage-upgrade");
 
@@ -168,12 +160,10 @@ contract UpgradeTimelockTest is Test {
     }
 
     function _safeUpgradeData() internal view returns (bytes memory) {
-        bytes memory initializeV2Data =
-            abi.encodeCall(UpgradeVaultV2.initializeV2, (guardian));
+        bytes memory initializeV2Data = abi.encodeCall(UpgradeVaultV2.initializeV2, (guardian));
 
         return abi.encodeCall(
-            UpgradeVaultV1.upgradeToAndCall,
-            (address(implementationV2), initializeV2Data)
+            UpgradeVaultV1.upgradeToAndCall, (address(implementationV2), initializeV2Data)
         );
     }
 }
