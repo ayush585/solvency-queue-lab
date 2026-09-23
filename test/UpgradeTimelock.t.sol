@@ -121,8 +121,8 @@ contract UpgradeTimelockTest is Test {
         vm.prank(address(timelock));
         vault.credit(alice, 777 ether);
 
-        bytes memory data = abi.encodeCall(
-            UpgradeVaultV1.upgradeToAndCall, (address(badImplementationV2), bytes(""))
+        bytes memory data = abi.encodeWithSignature(
+            "upgradeToAndCall(address,bytes)", address(badImplementationV2), bytes("")
         );
         bytes32 salt = keccak256("bad-storage-upgrade");
 
@@ -162,8 +162,8 @@ contract UpgradeTimelockTest is Test {
     function _safeUpgradeData() internal view returns (bytes memory) {
         bytes memory initializeV2Data = abi.encodeCall(UpgradeVaultV2.initializeV2, (guardian));
 
-        return abi.encodeCall(
-            UpgradeVaultV1.upgradeToAndCall, (address(implementationV2), initializeV2Data)
+        return abi.encodeWithSignature(
+            "upgradeToAndCall(address,bytes)", address(implementationV2), initializeV2Data
         );
     }
 }
