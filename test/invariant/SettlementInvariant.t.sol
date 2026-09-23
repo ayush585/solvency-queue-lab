@@ -38,8 +38,7 @@ contract SettlementInvariantTest is StdInvariant, Test {
             handlerActors[i] = actors[i];
         }
 
-        handler =
-            new SettlementHandler(pool, token, inbox, verifier, sequencer, handlerActors);
+        handler = new SettlementHandler(pool, token, inbox, verifier, sequencer, handlerActors);
 
         bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = SettlementHandler.lockAndCredit.selector;
