@@ -35,8 +35,7 @@ contract SettlementVerifierTest is Test {
         assertEq(token.balanceOf(address(pool)), 250 ether);
         assertEq(pool.totalLiabilities(address(token)), 0);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](0);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](0);
         bytes32[] memory deposits = new bytes32[](1);
         deposits[0] = depositId;
 
@@ -50,8 +49,7 @@ contract SettlementVerifierTest is Test {
     }
 
     function test_nonZeroSumPnLIsRejectedWithoutConsumingNonce() public {
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](1);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](1);
         pnl[0] = SettlementVerifier.PnLUpdate({user: alice, delta: 100 ether});
 
         bytes32[] memory deposits = new bytes32[](0);
@@ -69,8 +67,7 @@ contract SettlementVerifierTest is Test {
     function test_zeroSumPnLRedistributesClaimsWithoutCreatingLiabilities() public {
         _directDeposit(alice, 100 ether);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](2);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](2);
         pnl[0] = SettlementVerifier.PnLUpdate({user: alice, delta: -40 ether});
         pnl[1] = SettlementVerifier.PnLUpdate({user: bob, delta: 40 ether});
 
@@ -89,8 +86,7 @@ contract SettlementVerifierTest is Test {
         bytes32 depositId = keccak256("deposit-replay");
         _lockDeposit(depositId, alice, 100 ether);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](0);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](0);
         bytes32[] memory deposits = new bytes32[](1);
         deposits[0] = depositId;
 
@@ -109,22 +105,18 @@ contract SettlementVerifierTest is Test {
     }
 
     function test_outOfOrderBatchIsRejected() public {
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](0);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](0);
         bytes32[] memory deposits = new bytes32[](0);
 
         vm.prank(sequencer);
-        vm.expectRevert(
-            abi.encodeWithSelector(SettlementVerifier.InvalidBatchNonce.selector, 0, 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(SettlementVerifier.InvalidBatchNonce.selector, 0, 1));
         verifier.submitBatch(1, pnl, deposits);
 
         assertEq(verifier.nextBatchNonce(), 0);
     }
 
     function test_onlySequencerCanSubmitBatch() public {
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](0);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](0);
         bytes32[] memory deposits = new bytes32[](0);
 
         vm.prank(alice);
@@ -136,8 +128,7 @@ contract SettlementVerifierTest is Test {
         bytes32 depositId = keccak256("atomic-batch");
         _lockDeposit(depositId, bob, 50 ether);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](2);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](2);
         pnl[0] = SettlementVerifier.PnLUpdate({user: alice, delta: -100 ether});
         pnl[1] = SettlementVerifier.PnLUpdate({user: bob, delta: 100 ether});
 
