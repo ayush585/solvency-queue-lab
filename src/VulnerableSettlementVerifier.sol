@@ -24,10 +24,9 @@ contract VulnerableSettlementVerifier {
     uint256 public nextBatchNonce;
 
     constructor(Pool pool_, address token_, address sequencer_) {
-        if (
-            address(pool_) == address(0) || token_ == address(0)
-                || sequencer_ == address(0)
-        ) revert ZeroAddress();
+        if (address(pool_) == address(0) || token_ == address(0) || sequencer_ == address(0)) {
+            revert ZeroAddress();
+        }
 
         pool = pool_;
         token = token_;
@@ -39,7 +38,9 @@ contract VulnerableSettlementVerifier {
         PnLUpdate[] calldata pnlUpdates,
         CrossChainCredit[] calldata credits
     ) external {
-        if (msg.sender != sequencer) revert UnauthorizedSequencer();
+        if (msg.sender != sequencer) {
+            revert UnauthorizedSequencer();
+        }
 
         uint256 expected = nextBatchNonce;
         if (batchNonce != expected) revert InvalidBatchNonce(expected, batchNonce);
