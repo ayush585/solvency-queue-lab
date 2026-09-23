@@ -10,7 +10,7 @@ For each supported token:
 sum(user internal claims) <= ERC20.balanceOf(pool)
 ```
 
-Deposits credit observed assets, failed withdrawals preserve claims atomically, and privileged withdrawal/settlement operators are explicit trust boundaries.
+Deposits credit observed assets, failed withdrawals preserve claims atomically, and privileged withdrawal / settlement operators are explicit trust boundaries.
 
 ## Signed withdrawals
 
@@ -20,50 +20,87 @@ A successful signed authorization consumes exactly one nonce. Failed downstream 
 
 ## Forced-withdrawal queue
 
-Security properties:
+The hardened queue preserves global liveness while retaining failed user claims for retry.
 
-1. cursor never decreases;
-2. cursor never exceeds request count;
-3. attempted entries are terminal: Processed or Failed;
-4. unattempted entries remain Pending;
-5. failed Pool execution preserves the user's claim;
-6. one failing recipient cannot permanently block later requests;
-7. failed requests remain retryable;
-8. processed requests cannot replay;
-9. processing/retry entrypoints are non-reentrant.
+Key properties include monotonic bounded cursor movement, terminal state for attempted entries, pending state for future entries, retryability of failed requests, and conservation of deposits across outstanding claims plus successful payouts.
 
 ## Sequencer settlement
 
-A strict batch nonce provides ordering and replay protection. It does **not** prove that credits are backed, that P/L is economically valid, or that off-chain trades actually occurred.
+A strict batch nonce provides ordering and replay protection. It does **not** prove that credits are backed, P/L is economically valid, or off-chain trades occurred.
 
-`VulnerableSettlementVerifier.sol` deliberately demonstrates that distinction.
-
-### Hardened lab model
-
-`DepositInbox` creates a deposit receipt only after the exact corresponding token amount reaches Pool. The receipt is one-time consumable.
-
-`SettlementVerifier` requires:
+The hardened lab model therefore requires:
 
 - exact sequential batch nonce;
 - sequencer authorization;
-- backed one-time deposit receipts;
-- zero-sum P/L in the lab's closed accounting model.
+- one-time asset-backed deposit receipts;
+- zero-sum P/L in the closed settlement model.
 
-All batch state is atomic. If a later P/L application fails, the batch nonce, deposit-receipt consumption, and earlier credits roll back together.
+That zero-sum rule is intentionally not presented as a universal perp formula. Production systems must explicitly model fees, funding, liquidation flows, insurance, LP / market-maker counterparties, and bad debt.
 
-### Closed-system P/L limitation
+## Perp risk model
 
-The invariant:
+`PerpRisk.sol` models a linear perpetual:
 
 ```text
-sum P/L deltas == 0
+P/L = signed size × price change / entry price
+equity = collateral + P/L
+margin = notional × configured margin rate
 ```
 
-is not intended as a universal perpetual-DEX formula.
+Positive signed size is long; negative signed size is short.
 
-Production perp settlement must explicitly model value flows involving trading fees, funding payments, liquidation fees, insurance funds, LP / market-maker counterparties, protocol revenue, and bad debt / socialized loss.
+### Risk properties
 
-The next accounting milestone should turn those into explicit system accounts and conservation equations.
+1. Opening collateral must meet initial margin.
+2. Maintenance margin is lower than initial margin by constructor configuration.
+3. Collateral removal must leave resulting equity at or above initial margin.
+4. In this lab, liquidation becomes eligible at `equity <= maintenance margin`.
+5. Equal-and-opposite positions at the same entry and mark have equal-and-opposite price P/L.
+6. P/L is zero at entry price.
+7. Position notional and price inputs are bounded when opened.
+8. Mark prices are bounded inside the pure risk math before multiplication.
+
+### Arithmetic bounds
+
+The lab caps:
+
+```text
+abs(sizeUsd) <= 1e36
+price <= 1e30
+```
+
+These bounds keep `size × priceDelta` safely inside signed 256-bit arithmetic for the lab's 18-decimal USD representation.
+
+Margin requirements are also bounded by notional and a rate no greater than 100%, so conversions used when comparing unsigned margin requirements with signed equity are safe under these bounds.
+
+### Liquidation-boundary convention
+
+The lab uses:
+
+```text
+equity <= maintenance margin
+```
+
+as the liquidation threshold.
+
+This is a conservative explicit convention for this project. Different production protocols can differ in exact boundary semantics, fee inclusion, oracle choice, maintenance tiers, or pre-liquidation buffers.
+
+### What liquidation does not yet mean
+
+`IsolatedMarginBook.liquidate` currently closes position risk state only.
+
+It does **not** yet settle:
+
+- trader residual equity;
+- counterparty / LP P&L;
+- liquidator rewards;
+- liquidation fees;
+- protocol fees;
+- funding;
+- insurance-fund debits;
+- bad debt.
+
+Those are intentionally deferred so the next milestone can encode a full conservation equation.
 
 ## Deliberately vulnerable references
 
@@ -72,20 +109,11 @@ The next accounting milestone should turn those into explicit system accounts an
 - `VulnerableForcedWithdrawalQueue.sol`: FIFO head-of-line blocking.
 - `VulnerableSettlementVerifier.sol`: sequential batches that can still create arbitrary liabilities.
 
-## Trust boundaries
-
-- Pool owner controls operator authorization.
-- Withdrawal operators can execute user claims and must authenticate correctly.
-- Settlement operators can change internal claims and therefore require batch-level economic validation.
-- DepositInbox owner selects its one-time consumer.
-- The sequencer remains trusted to provide valid trade results within the invariants enforced on-chain.
-- The lab does not prove off-chain trade execution correctness.
-
 ## Current invariant evidence
 
-Three independent stateful suites currently cover Pool accounting, queue liveness, and settlement conservation.
+Three independent stateful suites cover Pool accounting, queue liveness, and settlement conservation.
 
-Each runs:
+Each verified suite runs:
 
 ```text
 256 invariant runs
@@ -93,21 +121,55 @@ Each runs:
 0 handler reverts
 ```
 
-on the verified CI head.
+The perp risk layer additionally has deterministic boundary tests and two 1,000-run fuzz properties.
 
 ## Deliberate limitations
 
 Not yet implemented:
 
-- real perp position accounting;
-- mark/index prices and oracle validation;
-- funding;
-- maintenance margin;
-- liquidation;
+- liquidation asset settlement;
 - insurance fund / bad debt;
+- funding;
+- trading / liquidation fees;
+- oracle freshness / manipulation checks;
 - Base fork state;
 - UUPS storage layouts and upgrade authorization;
 - formal verification;
 - cross-chain message proofs.
 
 Those are subsequent milestones.
+
+
+## Isolated perpetual risk
+
+The perp-risk module introduces signed linear position accounting.
+
+Security properties:
+
+1. positive size is long and negative size is short;
+2. long/short PnL is symmetric for equal and opposite positions;
+3. PnL is zero when mark price equals entry price;
+4. a position cannot open below initial margin;
+5. collateral cannot be removed if resulting equity falls below initial margin;
+6. liquidation is allowed only when equity is at or below maintenance margin;
+7. exact maintenance-margin equality is treated as liquidatable;
+8. extreme notional/price inputs are rejected before state storage and before unsafe multiplication.
+
+### Risk-only limitation
+
+`IsolatedMarginBook` intentionally separates **risk eligibility** from **financial settlement**.
+
+Closing a liquidatable position currently changes risk state only. It does not decide who absorbs losses or how remaining collateral is distributed.
+
+The next security boundary is therefore:
+
+```text
+liquidation equity >= 0
+    => residual collateral allocation + liquidation fee
+
+liquidation equity < 0
+    => bad debt
+    => insurance fund / explicit loss waterfall
+```
+
+Until that layer exists, the module must not be described as a production liquidation engine.
