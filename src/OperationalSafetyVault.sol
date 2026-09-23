@@ -37,10 +37,7 @@ contract OperationalSafetyVault {
     event StateChangeApplied(address indexed user, int256 delta);
     event SequencerHeartbeat(uint256 timestamp);
     event ModeChanged(
-        Mode indexed previousMode,
-        Mode indexed newMode,
-        bytes32 indexed reason,
-        address caller
+        Mode indexed previousMode, Mode indexed newMode, bytes32 indexed reason, address caller
     );
     event RecoveryScheduled(uint256 readyAt);
     event RecoveryExecuted(uint256 timestamp);
