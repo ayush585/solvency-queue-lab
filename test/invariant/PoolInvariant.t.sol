@@ -33,6 +33,9 @@ contract PoolInvariantTest is StdInvariant, Test {
         selectors[2] = PoolHandler.withdrawStandard.selector;
         selectors[3] = PoolHandler.withdrawFeeToken.selector;
 
+        // Restrict the state machine to the handler. Otherwise Foundry may target
+        // deployed token contracts directly and create asset donations outside our model.
+        targetContract(address(handler));
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
     }
 
