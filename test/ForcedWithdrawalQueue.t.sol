@@ -39,10 +39,7 @@ contract ForcedWithdrawalQueueTest is Test {
         assertEq(aliceId, 0);
         assertFalse(aliceSuccess);
         assertEq(queue.nextToProcess(), 1);
-        assertEq(
-            uint256(queue.statusOf(0)),
-            uint256(ForcedWithdrawalQueue.Status.Failed)
-        );
+        assertEq(uint256(queue.statusOf(0)), uint256(ForcedWithdrawalQueue.Status.Failed));
 
         // The failed external Pool call reverted atomically, preserving Alice's claim.
         assertEq(pool.balanceOf(address(token), alice), 100 ether);
@@ -53,10 +50,7 @@ contract ForcedWithdrawalQueueTest is Test {
         assertEq(bobId, 1);
         assertTrue(bobSuccess);
         assertEq(queue.nextToProcess(), 2);
-        assertEq(
-            uint256(queue.statusOf(1)),
-            uint256(ForcedWithdrawalQueue.Status.Processed)
-        );
+        assertEq(uint256(queue.statusOf(1)), uint256(ForcedWithdrawalQueue.Status.Processed));
         assertEq(pool.balanceOf(address(token), bob), 0);
         assertEq(token.balanceOf(bob), 100 ether);
 
@@ -65,10 +59,7 @@ contract ForcedWithdrawalQueueTest is Test {
         bool retrySuccess = queue.retryFailed(0);
 
         assertTrue(retrySuccess);
-        assertEq(
-            uint256(queue.statusOf(0)),
-            uint256(ForcedWithdrawalQueue.Status.Processed)
-        );
+        assertEq(uint256(queue.statusOf(0)), uint256(ForcedWithdrawalQueue.Status.Processed));
         assertEq(pool.balanceOf(address(token), alice), 0);
         assertEq(token.balanceOf(alice), 100 ether);
     }
@@ -82,10 +73,7 @@ contract ForcedWithdrawalQueueTest is Test {
         bool retrySuccess = queue.retryFailed(0);
         assertFalse(retrySuccess);
 
-        assertEq(
-            uint256(queue.statusOf(0)),
-            uint256(ForcedWithdrawalQueue.Status.Failed)
-        );
+        assertEq(uint256(queue.statusOf(0)), uint256(ForcedWithdrawalQueue.Status.Failed));
         assertEq(pool.balanceOf(address(token), alice), 100 ether);
         assertEq(token.balanceOf(alice), 0);
         assertEq(queue.nextToProcess(), 1);
@@ -96,9 +84,7 @@ contract ForcedWithdrawalQueueTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ForcedWithdrawalQueue.NotFailed.selector,
-                0,
-                ForcedWithdrawalQueue.Status.Processed
+                ForcedWithdrawalQueue.NotFailed.selector, 0, ForcedWithdrawalQueue.Status.Processed
             )
         );
         queue.retryFailed(0);
