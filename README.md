@@ -270,3 +270,131 @@ It does not yet settle:
 - funding.
 
 Those flows are intentionally the next milestone rather than being hidden inside the risk formula.
+
+
+## Milestone 6 — liquidation settlement, insurance, and bad debt
+
+`PerpClearingHouse.sol` moves liquidation from pure risk math into actual ERC-20 settlement.
+
+The clearing house holds real settlement-token balances for:
+
+```text
+open position collateral
++
+insurance assets
+```
+
+and exposes those buckets directly through:
+
+```text
+token.balanceOf(clearingHouse)
+==
+totalOpenCollateral + insuranceBalance
+```
+
+### Solvent liquidation
+
+For a liquidatable account with positive remaining equity:
+
+```text
+realized trader loss -> counterparty/system account
+
+remaining positive equity
+    -> liquidation fee (capped by equity) -> insurance
+    -> residual -> trader
+```
+
+The liquidation fee is based on position notional but can never consume more than the trader's remaining positive equity.
+
+### Bankrupt liquidation
+
+If the account equity is negative:
+
+```text
+trader collateral exhausted first
+        ↓
+insurance covers min(deficit, insuranceBalance)
+        ↓
+remaining deficit -> cumulative uncoveredBadDebt
+```
+
+No hidden minting occurs to make the books balance.
+
+### Asset behavior
+
+- collateral is transferred into the clearing house at position open;
+- insurance funding is transferred in as real tokens;
+- fee-on-transfer collateral is rejected via exact balance-delta checks;
+- liquidation settlement uses the same ERC-20 backing that the invariant suite observes.
+
+### Verified loss-waterfall coverage
+
+- solvent liquidation loss / fee / trader-residual split;
+- partial insurance coverage;
+- full insurance coverage;
+- liquidation fee capped by remaining positive equity;
+- healthy-position liquidation rejection;
+- real-token insurance backing;
+- fee-on-transfer collateral rejection with atomic rollback;
+- **1,000-run fuzz test** over insurance size and adverse price movement.
+
+### Stateful clearing-house invariants
+
+The handler randomizes:
+
+- insurance funding;
+- long/short position opens;
+- adverse liquidations.
+
+Verified across:
+
+```text
+256 invariant runs
+16,384 randomized calls
+0 handler reverts
+```
+
+with these properties:
+
+```text
+engine token balance
+==
+open collateral + insurance
+
+all minted settlement assets remain accounted for
+
+token total supply
+==
+tracked minted assets
+
+aggregate open-position collateral
+==
+totalOpenCollateral
+
+uncovered bad debt never decreases
+without an explicit resolution mechanism
+```
+
+### Current full suite
+
+```text
+55 / 55 tests passing
+4 independent stateful invariant suites
+each at 256 runs / 16,384 calls / 0 reverts
+```
+
+### Modeling boundary
+
+The counterparty is an explicit system recipient standing in for the winning side / settlement counterparty.
+
+The lab still does not model:
+
+- matching-engine trade execution;
+- funding accrual;
+- oracle validity / staleness;
+- partial liquidation;
+- ADL / socialized-loss resolution;
+- insurance recapitalization;
+- multi-market netting.
+
+Those remain explicit future layers instead of being hidden inside liquidation accounting.
