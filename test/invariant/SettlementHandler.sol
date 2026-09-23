@@ -48,8 +48,7 @@ contract SettlementHandler is Test {
         token.approve(address(inbox), amount);
         inbox.lockDeposit(depositId, actor, amount);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](0);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](0);
         bytes32[] memory deposits = new bytes32[](1);
         deposits[0] = depositId;
 
@@ -68,8 +67,7 @@ contract SettlementHandler is Test {
 
         uint256 amount = bound(uint256(rawAmount), 1, claim);
 
-        SettlementVerifier.PnLUpdate[] memory pnl =
-            new SettlementVerifier.PnLUpdate[](2);
+        SettlementVerifier.PnLUpdate[] memory pnl = new SettlementVerifier.PnLUpdate[](2);
         pnl[0] = SettlementVerifier.PnLUpdate({user: from, delta: -int256(amount)});
         pnl[1] = SettlementVerifier.PnLUpdate({user: to, delta: int256(amount)});
 
