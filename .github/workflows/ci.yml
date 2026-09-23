@@ -33,4 +33,9 @@ jobs:
           forge inspect BadUpgradeVaultV2 storage-layout
 
       - name: Unit, fuzz and invariant tests
-        run: forge test -vv
+        run: forge test --no-match-path 'test/fork/*.t.sol' -vv
+
+      - name: Base mainnet fork tests
+        env:
+          BASE_RPC_URL: https://mainnet.base.org
+        run: forge test --match-path 'test/fork/*.t.sol' -vv
