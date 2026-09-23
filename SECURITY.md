@@ -255,3 +255,59 @@ A future ADL / recapitalization mechanism must make any decrease explicit and se
 ### Trust boundary
 
 The fixed `counterparty` address represents the winning-side/system settlement recipient. That is a deliberate simplification: a production matching engine must prove which counterparties are owed realized P/L rather than routing all losses to one address.
+
+
+## Funding checkpoint safety
+
+Funding is modeled as a market-level transfer between the long and short sides.
+
+Security properties:
+
+1. market-level funding paid equals market-level funding received;
+2. a position only accrues funding after its own checkpoint;
+3. settling twice without additional time/rate movement produces zero new funding;
+4. a position opened after historical accrual starts at the current cumulative index;
+5. one-sided markets do not accrue funding;
+6. positive rate means longs pay shorts; negative rate means shorts pay longs;
+7. rate magnitude is bounded;
+8. unequal open interest changes per-size receiving rates but does not create market-level value.
+
+The current model tracks funding accounting only. It does not yet debit or credit the ERC-20-backed clearing-house collateral balances.
+
+That integration is a separate security boundary because funding settlement against collateral can itself trigger margin changes or liquidation.
+
+## Oracle safety
+
+`OracleGuard` treats price freshness as part of the liquidation authorization path.
+
+Required conditions:
+
+```text
+price > 0
+updatedAt > 0
+updatedAt <= block.timestamp
+block.timestamp - updatedAt <= maxAge
+```
+
+If any condition fails, entry/equity/liquidation logic must revert before using the price.
+
+### Why this matters
+
+A mathematically correct maintenance-margin formula is still unsafe if the mark price is stale, malformed, or timestamped in the future.
+
+The oracle adapter therefore sits *before* risk math rather than being treated as a UI/data-quality concern.
+
+### Trust boundary
+
+The lab validates freshness and timestamp sanity, but it does not prove the source's economic correctness.
+
+Still external to the model:
+
+- source aggregation;
+- signer / validator quorum;
+- deviation checks between sources;
+- sequencer uptime;
+- confidence intervals;
+- market-specific circuit breakers.
+
+Those are future hardening layers.
