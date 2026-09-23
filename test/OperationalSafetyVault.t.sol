@@ -25,13 +25,7 @@ contract OperationalSafetyVaultTest is Test {
 
         token = new MockERC20("Settlement Token", "SET");
         vault = new OperationalSafetyVault(
-            address(token),
-            owner,
-            sequencer,
-            guardian,
-            monitor,
-            INACTIVITY,
-            RECOVERY_DELAY
+            address(token), owner, sequencer, guardian, monitor, INACTIVITY, RECOVERY_DELAY
         );
     }
 
@@ -47,8 +41,7 @@ contract OperationalSafetyVaultTest is Test {
         token.approve(address(vault), 1 ether);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.ModeNotActive.selector,
-                OperationalSafetyVault.Mode.ExitOnly
+                OperationalSafetyVault.ModeNotActive.selector, OperationalSafetyVault.Mode.ExitOnly
             )
         );
         vault.deposit(1 ether);
@@ -57,8 +50,7 @@ contract OperationalSafetyVaultTest is Test {
         vm.prank(sequencer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.ModeNotActive.selector,
-                OperationalSafetyVault.Mode.ExitOnly
+                OperationalSafetyVault.ModeNotActive.selector, OperationalSafetyVault.Mode.ExitOnly
             )
         );
         vault.applyStateChange(bob, 1 ether);
@@ -82,9 +74,7 @@ contract OperationalSafetyVaultTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.SequencerStillFresh.selector,
-                INACTIVITY - 1,
-                INACTIVITY
+                OperationalSafetyVault.SequencerStillFresh.selector, INACTIVITY - 1, INACTIVITY
             )
         );
         vault.enterExitOnlyIfSequencerInactive();
@@ -145,9 +135,7 @@ contract OperationalSafetyVaultTest is Test {
         vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.SolventState.selector,
-                100 ether,
-                100 ether
+                OperationalSafetyVault.SolventState.selector, 100 ether, 100 ether
             )
         );
         vault.haltIfInsolvent();
@@ -165,9 +153,7 @@ contract OperationalSafetyVaultTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.RecoveryNotReady.selector,
-                readyAt,
-                block.timestamp
+                OperationalSafetyVault.RecoveryNotReady.selector, readyAt, block.timestamp
             )
         );
         vault.executeRecovery();
@@ -193,11 +179,7 @@ contract OperationalSafetyVaultTest is Test {
 
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OperationalSafetyVault.SequencerStale.selector,
-                age,
-                INACTIVITY
-            )
+            abi.encodeWithSelector(OperationalSafetyVault.SequencerStale.selector, age, INACTIVITY)
         );
         vault.executeRecovery();
 
@@ -226,11 +208,7 @@ contract OperationalSafetyVaultTest is Test {
 
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OperationalSafetyVault.Insolvent.selector,
-                80 ether,
-                100 ether
-            )
+            abi.encodeWithSelector(OperationalSafetyVault.Insolvent.selector, 80 ether, 100 ether)
         );
         vault.executeRecovery();
 
@@ -249,9 +227,7 @@ contract OperationalSafetyVaultTest is Test {
         vm.prank(sequencer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OperationalSafetyVault.UnbackedLiability.selector,
-                100 ether,
-                101 ether
+                OperationalSafetyVault.UnbackedLiability.selector, 100 ether, 101 ether
             )
         );
         vault.applyStateChange(bob, 1 ether);
