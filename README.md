@@ -398,3 +398,128 @@ The lab still does not model:
 - multi-market netting.
 
 Those remain explicit future layers instead of being hidden inside liquidation accounting.
+
+
+## Milestone 7 — funding checkpoints and oracle safety
+
+This milestone adds two separate perp-risk boundaries: funding settlement and price freshness.
+
+### Funding checkpoints
+
+`FundingMarket.sol` stores cumulative funding-per-size indexes for the long and short sides.
+
+The signed rate convention is:
+
+```text
+fundingRatePerSecond > 0
+=> longs pay shorts
+
+fundingRatePerSecond < 0
+=> shorts pay longs
+```
+
+Each position snapshots the current side-specific cumulative funding index when it opens or settles.
+
+Pending funding is then:
+
+```text
+position size
+×
+(current cumulative index - position checkpoint)
+/
+precision
+```
+
+This means a position is charged only for funding accrued since its own checkpoint rather than for market history that existed before the position.
+
+The receiving side is scaled by long/short open interest so market-level funding paid equals market-level funding received even when OI is unequal.
+
+Verified behaviors:
+
+- equal-OI long/short funding nets exactly to zero;
+- unequal OI scales the receiving side without creating value;
+- repeated settlement at the same checkpoint cannot double-charge;
+- a new position does not inherit historical funding;
+- rate direction can reverse;
+- no funding accrues while one side has zero open interest;
+- funding rate is explicitly bounded;
+- unequal-OI conservation is fuzzed within integer-rounding dust.
+
+### Stateful funding invariants
+
+The funding handler randomizes:
+
+- authorized funding-rate changes;
+- time jumps;
+- explicit accrual;
+- long settlement;
+- short settlement.
+
+Verified:
+
+```text
+totalFundingPaid == totalFundingReceived
+
+equal-OI long total funding
++
+equal-OI short total funding
+== 0
+
+longOI == shortOI
+```
+
+across:
+
+```text
+256 invariant runs
+16,384 randomized calls
+0 handler reverts
+```
+
+### Oracle safety
+
+`OracleGuard.sol` wraps an external price feed and rejects:
+
+- zero price;
+- missing timestamp;
+- future timestamp;
+- stale timestamp.
+
+The freshness rule is half-open in time:
+
+```text
+block.timestamp - updatedAt <= maxAge
+=> accepted
+
+block.timestamp - updatedAt > maxAge
+=> stale
+```
+
+`OracleMarginBook.sol` uses only `OracleGuard.validatedPrice()` for:
+
+- position entry;
+- equity;
+- liquidation checks;
+- liquidation execution.
+
+A caller cannot supply an arbitrary mark price to the liquidation path.
+
+Verified behaviors:
+
+- exact max-age boundary accepted;
+- one second beyond max age rejected;
+- future timestamps rejected;
+- zero / missing data rejected;
+- stale oracle data cannot liquidate a position;
+- fresh oracle data can liquidate exactly at maintenance margin;
+- **1,000-run freshness-boundary fuzz test**.
+
+### Current full verification
+
+```text
+73 / 73 tests passing
+5 independent stateful invariant suites
+each at 256 runs / 16,384 calls / 0 reverts
+```
+
+This milestone follows the same broad pattern used by current perp protocols: cumulative per-position funding checkpoints and oracle-driven collateral/liquidation decisions. It intentionally keeps the rate source and oracle aggregation mechanism outside the lab so those trust boundaries remain explicit rather than implied.
