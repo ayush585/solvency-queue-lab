@@ -21,15 +21,10 @@ contract SettlementVerifier {
     DepositInbox public immutable depositInbox;
     uint256 public nextBatchNonce;
 
-    constructor(
-        Pool pool_,
-        address token_,
-        address sequencer_,
-        DepositInbox depositInbox_
-    ) {
+    constructor(Pool pool_, address token_, address sequencer_, DepositInbox depositInbox_) {
         if (
-            address(pool_) == address(0) || token_ == address(0)
-                || sequencer_ == address(0) || address(depositInbox_) == address(0)
+            address(pool_) == address(0) || token_ == address(0) || sequencer_ == address(0)
+                || address(depositInbox_) == address(0)
         ) revert ZeroAddress();
 
         pool = pool_;
@@ -43,7 +38,9 @@ contract SettlementVerifier {
         PnLUpdate[] calldata pnlUpdates,
         bytes32[] calldata depositIds
     ) external {
-        if (msg.sender != sequencer) revert UnauthorizedSequencer();
+        if (msg.sender != sequencer) {
+            revert UnauthorizedSequencer();
+        }
 
         uint256 expected = nextBatchNonce;
         if (batchNonce != expected) revert InvalidBatchNonce(expected, batchNonce);
