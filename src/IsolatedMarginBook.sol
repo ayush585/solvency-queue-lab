@@ -16,8 +16,12 @@ contract IsolatedMarginBook {
         bool open;
     }
 
+    uint256 public constant MAX_NOTIONAL_USD = 1e36;
+    uint256 public constant MAX_PRICE = 1e30;
+
     error InvalidMarginConfiguration();
     error InvalidPosition();
+    error RiskInputTooLarge();
     error PositionAlreadyOpen();
     error PositionNotOpen();
     error InitialMarginTooLow(uint256 required, uint256 provided);
@@ -57,6 +61,9 @@ contract IsolatedMarginBook {
     function openPosition(int256 sizeUsd, uint256 entryPrice, uint256 collateralUsd) external {
         if (positions[msg.sender].open) revert PositionAlreadyOpen();
         if (sizeUsd == 0 || entryPrice == 0 || collateralUsd == 0) revert InvalidPosition();
+        if (
+            PerpRisk.notional(sizeUsd) > MAX_NOTIONAL_USD || entryPrice > MAX_PRICE
+        ) revert RiskInputTooLarge();
 
         uint256 required = PerpRisk.marginRequirement(sizeUsd, initialMarginBps);
         if (collateralUsd < required) revert InitialMarginTooLow(required, collateralUsd);
