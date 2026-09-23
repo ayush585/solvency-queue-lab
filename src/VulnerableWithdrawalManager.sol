@@ -28,8 +28,7 @@ contract VulnerableWithdrawalManager {
     bytes32 public constant DOMAIN_TYPEHASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
-    bytes32 public constant NAME_HASH =
-        keccak256("Solvency Queue Lab VulnerableWithdrawalManager");
+    bytes32 public constant NAME_HASH = keccak256("Solvency Queue Lab VulnerableWithdrawalManager");
     bytes32 public constant VERSION_HASH = keccak256("1");
 
     Pool public immutable pool;
