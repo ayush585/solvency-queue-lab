@@ -2,7 +2,7 @@
 
 [![Foundry CI](https://github.com/ayush585/solvency-queue-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush585/solvency-queue-lab/actions/workflows/ci.yml)
 
-A Foundry security lab for **perp-DEX custody, settlement, withdrawals, risk, liquidation, funding, oracle, and upgrade state machines**.
+A Foundry security lab for **perp-DEX custody, settlement, withdrawals, risk, liquidation, funding, oracle, upgrades, and incident-response state machines**.
 
 The goal is not to ship another toy token contract. The repo takes security properties that matter when contracts hold real value, deliberately breaks them, reproduces the failure, and then hardens the design with adversarial tests, fuzzing, stateful invariants, and Base Mainnet fork integration.
 
@@ -14,16 +14,16 @@ Current CI on `main`:
 
 | Evidence | Verified result |
 |---|---:|
-| Local unit / adversarial / fuzz tests | **89 passed / 0 failed** |
+| Local unit / adversarial / fuzz tests | **102 passed / 0 failed** |
 | Base Mainnet fork tests | **3 passed / 0 failed** |
 | Standalone fuzz tests | **7 × 1,000 runs** |
-| Stateful invariant suites | **5** |
+| Stateful invariant suites | **6** |
 | Calls per invariant suite | **16,384** |
 | Reverts in each invariant harness | **0** |
 | Foundry | **v1.8.3** |
 | OpenZeppelin Contracts | **v5.7.0** |
 
-Stateful suites cover **Pool solvency, forced-withdrawal queues, sequencer settlement, perp clearing / bad debt, and funding**.
+Stateful suites cover **Pool solvency, forced-withdrawal queues, sequencer settlement, perp clearing / bad debt, funding, and operational incident modes**.
 
 ## What this lab demonstrates
 
@@ -42,6 +42,10 @@ Stateful suites cover **Pool solvency, forced-withdrawal queues, sequencer settl
 - UUPS / ERC-1967 upgrade authorization and storage-layout corruption
 - timelocked upgrade governance
 - integration against canonical native USDC on **Base Mainnet**
+- graceful degradation with **Active / ExitOnly / Halted** incident modes
+- permissionless sequencer-inactivity and insolvency circuit breakers
+- delayed recovery requiring restored solvency + fresh sequencer heartbeat
+- deployment / health-check scripts and an incident-response runbook
 
 ## Failure classes reproduced
 
@@ -57,6 +61,8 @@ Stateful suites cover **Pool solvency, forced-withdrawal queues, sequencer settl
 | Unsafe oracle use | Stale/future/zero data could feed liquidation math | All risk decisions pass through freshness/timestamp validation |
 | UUPS storage corruption | New slot inserted before V1 state reinterprets financial/access-control storage | Safe V2 appends state; CI inspects layouts |
 | Instant privileged upgrade | Admin could replace implementation immediately | Upgrade authority sits behind an explicit timelock |
+| Incident continuation | Protocol keeps accepting new risk during sequencer/anomaly uncertainty | ExitOnly blocks new risk while preserving user exits |
+| Insolvency continuation | Transfers continue after backing falls below liabilities | Permissionless insolvency detection moves system to Halted |
 
 ## Architecture map
 
@@ -109,6 +115,13 @@ The modules are intentionally focused security labs rather than one claimed prod
       └──────── bad layout ─────────────► observable corruption
 
  TimelockController ── delayed authority ──► UUPS upgrade
+
+
+ OperationalSafetyVault
+      │
+      ├── Active
+      ├── ExitOnly  ──► withdrawals remain available
+      └── Halted    ──► financial state frozen
 ```
 
 ## Core invariants
@@ -271,6 +284,15 @@ Foundry's `deal` cheatcode seeds only ephemeral fork state; approvals and transf
 - `test/invariant/ClearingHouseInvariant.t.sol`
 - `test/invariant/FundingInvariant.t.sol`
 
+### Operational safety
+
+- `src/OperationalSafetyVault.sol`
+- `test/OperationalSafetyVault.t.sol`
+- `test/invariant/OperationalSafetyInvariant.t.sol`
+- `script/OperationalHealthCheck.s.sol`
+- `script/DeployOperationalSafetyVault.s.sol`
+- `INCIDENT_RUNBOOK.md`
+
 ### Fork integration
 
 - `test/fork/BaseFork.t.sol`
@@ -313,7 +335,108 @@ Important systems still outside the model include:
 - partial liquidation and ADL / socialized-loss resolution;
 - multi-market portfolio margin;
 - cross-chain message verification;
-- production multisig operations and incident tooling;
+- production multisig / key-management automation and live monitoring infrastructure;
 - formal verification.
 
 Those boundaries are documented rather than hidden behind a "production-ready" claim.
+
+
+## Milestone 11 — graceful degradation and incident response
+
+`OperationalSafetyVault.sol` adds an explicit operational mode machine:
+
+```text
+Active
+  │
+  ├── anomaly / sequencer outage ──► ExitOnly
+  │                                  │
+  │                                  └── user withdrawals still work
+  │
+  └── insolvency / severe exploit ──► Halted
+                                     └── financial state frozen
+```
+
+### ExitOnly
+
+Blocked:
+
+- deposits;
+- sequencer claim/P&L state changes;
+- creation of new liabilities.
+
+Still allowed:
+
+- direct user withdrawals;
+- sequencer heartbeat so liveness can be re-established.
+
+This gives the system a degraded mode that stops taking new risk without automatically trapping solvent users.
+
+### Halted
+
+Used when transfer safety or backing itself is compromised.
+
+Anyone can trigger `Halted` if:
+
+```text
+token assets < internal liabilities
+```
+
+The guardian can also halt explicitly during a severe incident.
+
+### Recovery
+
+Recovery is never automatic.
+
+It requires:
+
+```text
+recovery delay elapsed
+AND
+assets >= liabilities
+AND
+sequencer heartbeat is fresh
+```
+
+### Operational tooling
+
+The repo now includes:
+
+- `OperationalHealthCheck.s.sol` — exits non-zero on insolvency, stale sequencer, or degraded mode;
+- `DeployOperationalSafetyVault.s.sol` — environment-driven deployment helper;
+- `INCIDENT_RUNBOOK.md` — detect → contain → reconcile → recover workflow.
+
+### Stateful operational invariants
+
+The handler randomizes deposits, withdrawals, backed credits, claim redistribution, heartbeats, time jumps, sequencer-outage trips, monitoring actions, and guardian halts.
+
+Verified across:
+
+```text
+256 invariant runs
+16,384 randomized calls
+0 handler reverts
+```
+
+Properties:
+
+```text
+assets >= liabilities
+
+sum(user claims) == liabilities
+
+degraded mode never increases liabilities
+
+Halted mode freezes financial state
+
+incident mode never de-escalates without explicit recovery
+```
+
+### Current verified suite
+
+```text
+102 local tests passed / 0 failed
+3 Base Mainnet fork tests passed / 0 failed
+6 stateful invariant suites
+16,384 calls per suite
+0 harness reverts in every suite
+```
