@@ -59,9 +59,7 @@ contract ClearingHouseHandler is Test {
         vm.startPrank(actor);
         token.approve(address(engine), collateral);
         engine.openPosition(
-            shortSide ? -int256(notional) : int256(notional),
-            1_000 ether,
-            collateral
+            shortSide ? -int256(notional) : int256(notional), 1_000 ether, collateral
         );
         vm.stopPrank();
 
@@ -71,7 +69,7 @@ contract ClearingHouseHandler is Test {
 
     function liquidate(uint256 actorSeed, uint16 rawMoveBps) external {
         address actor = _actor(actorSeed);
-        (int256 sizeUsd,, , bool open) = engine.positions(actor);
+        (int256 sizeUsd,,, bool open) = engine.positions(actor);
         if (!open) return;
 
         uint256 moveBps = bound(uint256(rawMoveBps), 500, 5_000);
