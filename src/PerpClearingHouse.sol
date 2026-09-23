@@ -99,8 +99,9 @@ contract PerpClearingHouse {
 
         _pullExact(msg.sender, collateral);
 
-        positions[msg.sender] =
-            Position({sizeUsd: sizeUsd, entryPrice: entryPrice, collateral: collateral, open: true});
+        positions[msg.sender] = Position({
+            sizeUsd: sizeUsd, entryPrice: entryPrice, collateral: collateral, open: true
+        });
         totalOpenCollateral += collateral;
 
         emit PositionOpened(msg.sender, sizeUsd, entryPrice, collateral);
@@ -131,14 +132,12 @@ contract PerpClearingHouse {
 
         int256 pnl = PerpRisk.unrealizedPnl(position.sizeUsd, position.entryPrice, markPrice);
         int256 accountEquity = PerpRisk.equity(position.collateral, pnl);
-        uint256 maintenance =
-            PerpRisk.marginRequirement(position.sizeUsd, maintenanceMarginBps);
+        uint256 maintenance = PerpRisk.marginRequirement(position.sizeUsd, maintenanceMarginBps);
 
         if (accountEquity > int256(maintenance)) {
             revert NotLiquidatable(accountEquity, maintenance);
         }
 
-        // Close risk state before transfers.
         delete positions[account];
         totalOpenCollateral -= position.collateral;
 
@@ -150,21 +149,17 @@ contract PerpClearingHouse {
 
         if (accountEquity > 0) {
             uint256 positiveEquity = uint256(accountEquity);
-            uint256 nominalFee =
-                (PerpRisk.notional(position.sizeUsd) * liquidationFeeBps) / BPS;
+            uint256 nominalFee = (PerpRisk.notional(position.sizeUsd) * liquidationFeeBps) / BPS;
             liquidationFee = nominalFee > positiveEquity ? positiveEquity : nominalFee;
             traderResidual = positiveEquity - liquidationFee;
 
-            // The losing trader's realized P/L is paid to the explicit winning/system account.
             if (realizedLoss != 0) settlementToken.safeTransfer(counterparty, realizedLoss);
             if (traderResidual != 0) settlementToken.safeTransfer(account, traderResidual);
 
-            // Liquidation fee remains inside the contract as insurance assets.
             insuranceBalance += liquidationFee;
         } else {
             newBadDebt = uint256(-accountEquity);
-            insuranceCoverage =
-                newBadDebt > insuranceBalance ? insuranceBalance : newBadDebt;
+            insuranceCoverage = newBadDebt > insuranceBalance ? insuranceBalance : newBadDebt;
             insuranceBalance -= insuranceCoverage;
 
             uint256 counterpartyPayout = position.collateral + insuranceCoverage;
