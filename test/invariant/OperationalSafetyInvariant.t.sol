@@ -24,13 +24,7 @@ contract OperationalSafetyInvariantTest is StdInvariant, Test {
 
         token = new MockERC20("Settlement Token", "SET");
         vault = new OperationalSafetyVault(
-            address(token),
-            owner,
-            sequencer,
-            guardian,
-            monitor,
-            1 days,
-            1 hours
+            address(token), owner, sequencer, guardian, monitor, 1 days, 1 hours
         );
 
         actors.push(makeAddr("alice"));
@@ -43,14 +37,8 @@ contract OperationalSafetyInvariantTest is StdInvariant, Test {
             handlerActors[i] = actors[i];
         }
 
-        handler = new OperationalSafetyHandler(
-            vault,
-            token,
-            sequencer,
-            guardian,
-            monitor,
-            handlerActors
-        );
+        handler =
+            new OperationalSafetyHandler(vault, token, sequencer, guardian, monitor, handlerActors);
 
         bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = OperationalSafetyHandler.deposit.selector;
@@ -106,9 +94,7 @@ contract OperationalSafetyInvariantTest is StdInvariant, Test {
 
         assertEq(vault.assets(), handler.haltedAssets(), "halted mode moved assets");
         assertEq(
-            vault.totalLiabilities(),
-            handler.haltedLiabilities(),
-            "halted mode changed liabilities"
+            vault.totalLiabilities(), handler.haltedLiabilities(), "halted mode changed liabilities"
         );
     }
 
