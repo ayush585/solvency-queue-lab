@@ -8,17 +8,20 @@ contract FundingHandler is Test {
     FundingMarket public immutable market;
     address public immutable longAccount;
     address public immutable shortAccount;
+    address public immutable marketOwner;
 
     constructor(FundingMarket market_, address longAccount_, address shortAccount_) {
         market = market_;
         longAccount = longAccount_;
         shortAccount = shortAccount_;
+        marketOwner = market_.owner();
     }
 
     function setRate(int64 rawRate) external {
         int256 rate = int256(rawRate);
         rate = bound(rate, -market.MAX_ABS_RATE_PER_SECOND(), market.MAX_ABS_RATE_PER_SECOND());
 
+        vm.prank(marketOwner);
         market.setFundingRate(rate);
     }
 
