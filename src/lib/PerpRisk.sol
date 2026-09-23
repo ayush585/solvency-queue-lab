@@ -42,11 +42,7 @@ library PerpRisk {
         return int256(collateralUsd) + pnl;
     }
 
-    function marginRequirement(int256 sizeUsd, uint256 marginBps)
-        internal
-        pure
-        returns (uint256)
-    {
+    function marginRequirement(int256 sizeUsd, uint256 marginBps) internal pure returns (uint256) {
         return (notional(sizeUsd) * marginBps) / BPS;
     }
 
