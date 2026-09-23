@@ -196,3 +196,77 @@ Next:
 ## Disclaimer
 
 Educational security lab only. Not audited. Not production-ready.
+
+
+## Milestone 5 — isolated perp risk and liquidation math
+
+This milestone adds the first actual perpetual-risk state machine.
+
+`PerpRisk.sol` models a linear perpetual using signed USD notional:
+
+```text
+sizeUsd > 0  => long
+sizeUsd < 0  => short
+
+unrealized PnL
+= sizeUsd × (markPrice - entryPrice) / entryPrice
+
+equity
+= collateral + unrealized PnL
+
+initial margin
+= abs(sizeUsd) × initialMarginBps / 10_000
+
+maintenance margin
+= abs(sizeUsd) × maintenanceMarginBps / 10_000
+
+liquidatable
+= equity <= maintenance margin
+```
+
+`IsolatedMarginBook.sol` enforces:
+
+- minimum initial margin at position open;
+- bounded price and notional inputs before state is stored;
+- long/short PnL symmetry;
+- isolated collateral removal only when resulting equity still satisfies initial margin;
+- exact maintenance-margin liquidation boundary;
+- healthy positions cannot be liquidated;
+- adding collateral can restore a position above maintenance.
+
+### Verified risk coverage
+
+- +10% price move on a long produces +10% notional PnL;
+- -10% price move on a short produces +10% notional PnL;
+- long and short PnL are symmetric;
+- exact maintenance boundary is liquidatable;
+- initial-margin undercollateralization is rejected;
+- collateral removal cannot create an under-margined account;
+- oversized/toxic risk inputs are rejected before arithmetic can become unusable;
+- **2 fuzz tests × 1,000 runs** cover PnL symmetry and zero PnL at entry.
+
+### Current full verification
+
+```text
+46 / 46 tests passing
+Pool invariants:       256 runs / 16,384 calls / 0 reverts
+Queue invariants:      256 runs / 16,384 calls / 0 reverts
+Settlement invariants: 256 runs / 16,384 calls / 0 reverts
+```
+
+### Modeling boundary
+
+This milestone decides **whether** an account is liquidatable and closes its risk state.
+
+It does not yet settle:
+
+- trader collateral;
+- realized loss;
+- liquidation fees;
+- liquidator reward;
+- insurance-fund transfers;
+- bad debt;
+- socialized loss;
+- funding.
+
+Those flows are intentionally the next milestone rather than being hidden inside the risk formula.
