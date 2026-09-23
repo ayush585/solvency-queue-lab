@@ -109,8 +109,11 @@ contract UpgradeTimelockTest is Test {
 
         _schedule(data, salt);
 
+        bytes32 operationId =
+            timelock.hashOperation(address(vault), 0, data, bytes32(0), salt);
+
         vm.prank(proposer);
-        timelock.cancel(timelock.hashOperation(address(vault), 0, data, bytes32(0), salt));
+        timelock.cancel(operationId);
 
         vm.warp(block.timestamp + DELAY);
 
