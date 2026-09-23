@@ -19,13 +19,7 @@ contract DeployOperationalSafetyVault is Script {
 
         vm.startBroadcast(deployerKey);
         vault = new OperationalSafetyVault(
-            token,
-            owner,
-            sequencer,
-            guardian,
-            monitor,
-            inactivityThreshold,
-            recoveryDelay
+            token, owner, sequencer, guardian, monitor, inactivityThreshold, recoveryDelay
         );
         vm.stopBroadcast();
 
