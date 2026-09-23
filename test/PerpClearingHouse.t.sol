@@ -21,11 +21,7 @@ contract PerpClearingHouseTest is Test {
     function setUp() public {
         token = new MockERC20("Settlement Token", "SET");
         engine = new PerpClearingHouse(
-            address(token),
-            counterparty,
-            INITIAL_BPS,
-            MAINTENANCE_BPS,
-            LIQUIDATION_FEE_BPS
+            address(token), counterparty, INITIAL_BPS, MAINTENANCE_BPS, LIQUIDATION_FEE_BPS
         );
     }
 
@@ -88,9 +84,7 @@ contract PerpClearingHouseTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                PerpClearingHouse.NotLiquidatable.selector,
-                int256(510 ether),
-                500 ether
+                PerpClearingHouse.NotLiquidatable.selector, int256(510 ether), 500 ether
             )
         );
         engine.liquidate(alice, 951 ether);
@@ -107,11 +101,7 @@ contract PerpClearingHouseTest is Test {
     function test_feeOnTransferCollateralIsRejectedAtomically() public {
         FeeOnTransferToken feeToken = new FeeOnTransferToken(1_000);
         PerpClearingHouse feeEngine = new PerpClearingHouse(
-            address(feeToken),
-            counterparty,
-            INITIAL_BPS,
-            MAINTENANCE_BPS,
-            LIQUIDATION_FEE_BPS
+            address(feeToken), counterparty, INITIAL_BPS, MAINTENANCE_BPS, LIQUIDATION_FEE_BPS
         );
 
         feeToken.mint(alice, 1_000 ether);
@@ -120,9 +110,7 @@ contract PerpClearingHouseTest is Test {
         feeToken.approve(address(feeEngine), type(uint256).max);
         vm.expectRevert(
             abi.encodeWithSelector(
-                PerpClearingHouse.UnexpectedReceived.selector,
-                1_000 ether,
-                900 ether
+                PerpClearingHouse.UnexpectedReceived.selector, 1_000 ether, 900 ether
             )
         );
         feeEngine.openPosition(10_000 ether, 1_000 ether, 1_000 ether);
@@ -133,10 +121,9 @@ contract PerpClearingHouseTest is Test {
         assertEq(feeEngine.totalOpenCollateral(), 0);
     }
 
-    function testFuzz_bankruptcyWaterfallConservesAssets(
-        uint96 rawInsurance,
-        uint16 rawDropBps
-    ) public {
+    function testFuzz_bankruptcyWaterfallConservesAssets(uint96 rawInsurance, uint16 rawDropBps)
+        public
+    {
         uint256 insurance = bound(uint256(rawInsurance), 0, 2_000 ether);
         uint256 dropBps = bound(uint256(rawDropBps), 1_001, 5_000);
 
@@ -156,8 +143,7 @@ contract PerpClearingHouseTest is Test {
             engine.totalOpenCollateral() + engine.insuranceBalance()
         );
         assertEq(
-            token.balanceOf(address(engine))
-                + token.balanceOf(counterparty)
+            token.balanceOf(address(engine)) + token.balanceOf(counterparty)
                 + token.balanceOf(alice),
             supplyBefore
         );
