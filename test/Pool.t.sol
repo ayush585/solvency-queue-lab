@@ -64,9 +64,18 @@ contract PoolTest is Test {
         uint256 claimBefore = pool.balanceOf(address(feeToken), alice);
         uint256 poolAssetsBefore = feeToken.balanceOf(address(pool));
         uint256 aliceAssetsBefore = feeToken.balanceOf(alice);
+        uint256 expectedReceived =
+            (claimBefore * (10_000 - feeToken.feeBps())) / 10_000;
 
         vm.prank(alice);
-        vm.expectRevert(Pool.UnexpectedTransferBehavior.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Pool.UnexpectedTransferBehavior.selector,
+                claimBefore,
+                claimBefore,
+                expectedReceived
+            )
+        );
         pool.withdraw(address(feeToken), claimBefore);
 
         assertEq(pool.balanceOf(address(feeToken), alice), claimBefore);
