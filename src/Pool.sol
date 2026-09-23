@@ -14,8 +14,12 @@ contract Pool {
     error InsufficientBalance();
     error UnexpectedTransferBehavior(uint256 expected, uint256 poolSpent, uint256 userReceived);
 
-    event Deposited(address indexed user, address indexed token, uint256 requestedAmount, uint256 creditedAmount);
-    event Withdrawn(address indexed user, address indexed token, address indexed recipient, uint256 amount);
+    event Deposited(
+        address indexed user, address indexed token, uint256 requestedAmount, uint256 creditedAmount
+    );
+    event Withdrawn(
+        address indexed user, address indexed token, address indexed recipient, uint256 amount
+    );
     event WithdrawalOperatorUpdated(address indexed operator, bool allowed);
     event SettlementOperatorUpdated(address indexed operator, bool allowed);
     event StateChangeApplied(address indexed user, address indexed token, int256 delta);
@@ -59,7 +63,10 @@ contract Pool {
         emit SettlementOperatorUpdated(operator, allowed);
     }
 
-    function deposit(address token, uint256 requestedAmount) external returns (uint256 creditedAmount) {
+    function deposit(address token, uint256 requestedAmount)
+        external
+        returns (uint256 creditedAmount)
+    {
         if (requestedAmount == 0) revert ZeroAmount();
 
         uint256 assetsBefore = IERC20Minimal(token).balanceOf(address(this));
