@@ -45,28 +45,75 @@ Security properties:
 7. High-s ECDSA signatures are rejected.
 8. The transaction sender is only a relayer; authorization comes from the signature.
 
-## Deliberately vulnerable reference
+## Forced-withdrawal queue rules
 
-`VulnerableWithdrawalManager.sol` includes the nonce in signed data but never checks or consumes it.
+The queue exists to preserve global withdrawal progress when individual requests fail.
 
-That demonstrates an important principle:
+Security properties:
 
-> putting a nonce inside a signature does not provide replay protection unless protocol state enforces uniqueness.
+1. `nextToProcess` never decreases.
+2. `nextToProcess <= requestCount`.
+3. Every entry behind the cursor is terminal: `Processed` or `Failed`.
+4. Every unattempted entry ahead of the cursor remains `Pending`.
+5. A failed request does not destroy the user's Pool claim.
+6. A failed request cannot stop later valid requests from being attempted.
+7. A failed request remains retryable.
+8. A processed request cannot be retried.
+9. Processing and retry entrypoints are non-reentrant.
+10. Successful payouts and outstanding claims must conserve deposited value.
 
-## Current trust boundary
+### Why failure isolation matters
 
-The Pool owner can authorize or revoke withdrawal operators. An authorized operator can call `withdrawFor`, so each operator is a security-critical component and must enforce its own authorization rules correctly.
+The deliberately vulnerable queue performs:
+
+```text
+withdraw head
+-> if success: increment cursor
+```
+
+A recipient-specific token revert therefore leaves the cursor unchanged and freezes all later users.
+
+The hardened queue performs:
+
+```text
+mark Processing
+-> advance cursor
+-> try Pool withdrawal
+   -> success: Processed
+   -> revert:  Failed
+```
+
+The failed Pool call reverts its own state changes, so the user's claim remains in the Pool while the queue itself retains global progress.
+
+### Retry model
+
+Retries operate on failed entries directly and do not move the FIFO cursor. If the original failure condition disappears, the request can later transition from `Failed` to `Processed`.
+
+## Deliberately vulnerable references
+
+- `VulnerablePool.sol`: credits requested deposit amount instead of received assets.
+- `VulnerableWithdrawalManager.sol`: signs a nonce but never enforces it.
+- `VulnerableForcedWithdrawalQueue.sol`: lets one failing FIFO head freeze every later request.
+
+## Current trust boundaries
+
+- The Pool owner can authorize or revoke withdrawal operators.
+- Each authorized operator can call `withdrawFor` and is therefore security-critical.
+- The blacklist token mock has a privileged owner that can change recipient blacklist state.
+- The hardened queue catches Pool execution failure generically; it does not yet classify or bound every possible external-call failure mode.
 
 ## Deliberate limitations
 
 Not yet implemented:
 
-- forced-withdrawal queue
-- blacklisted-recipient failure isolation
-- reentrancy-specific mocks
-- upgradeability
-- cross-chain settlement state
-- account abstraction / passkeys
-- formal verification
+- reserved balances for queued requests;
+- bounded-gas external processing;
+- stored failure-reason classification;
+- reentrancy-specific malicious token mocks;
+- false-returning / malformed ERC-20 mocks;
+- upgradeability;
+- cross-chain settlement state;
+- account abstraction / passkeys;
+- formal verification.
 
 Those are subsequent milestones.
