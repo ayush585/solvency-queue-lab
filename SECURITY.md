@@ -436,3 +436,93 @@ This does not claim that the synthetic account owns those assets on real Base. I
 The public Base RPC is an external dependency of this integration gate.
 
 A production CI setup could pin a specific block and use a dedicated authenticated RPC provider for stronger reproducibility and availability. Local unit/fuzz/invariant tests remain independent of RPC availability.
+
+
+## Operational incident modes
+
+`OperationalSafetyVault` treats incident response as an on-chain state machine rather than an off-chain convention.
+
+### Active
+
+Normal custody operation:
+
+- deposits;
+- sequencer-backed internal state changes;
+- withdrawals.
+
+The sequencer may not create liabilities above actual token backing.
+
+### ExitOnly
+
+Security objective:
+
+```text
+stop new risk
+while
+preserving solvent user exits
+```
+
+Once ExitOnly is active:
+
+- deposits are blocked;
+- sequencer state changes are blocked;
+- user withdrawals remain enabled;
+- liabilities can only stay flat or decrease.
+
+Entry paths:
+
+- authorized monitor / guardian;
+- permissionless trigger once sequencer inactivity reaches the configured threshold.
+
+### Halted
+
+Halted is the stronger containment state.
+
+Financial transfers are frozen.
+
+Entry paths:
+
+- guardian action;
+- permissionless insolvency trigger when:
+
+```text
+assets < liabilities
+```
+
+### Recovery invariant
+
+Recovery requires all of:
+
+```text
+delay elapsed
+assets >= liabilities
+sequencer age < inactivity threshold
+```
+
+A fresh heartbeat does not automatically restore Active mode.
+
+This separation prevents a minimally active or compromised sequencer from clearing an incident state by itself.
+
+### Stateful incident invariants
+
+The operational invariant suite verifies:
+
+1. actual token assets always cover liabilities under modeled actions;
+2. known user claims sum exactly to total liabilities;
+3. all minted settlement assets remain accounted for;
+4. once degraded, liabilities never increase;
+5. once Halted, financial state is frozen;
+6. mode cannot de-escalate in the harness because recovery is excluded from random incident actions.
+
+The suite runs 256 invariant runs × 16,384 calls with zero handler reverts on the verified branch.
+
+### Operational trust boundaries
+
+- monitor can stop new risk by entering ExitOnly;
+- guardian can fully Halt;
+- sequencer can update claims only while Active;
+- owner controls delayed recovery;
+- inactivity and insolvency trips are permissionless;
+- production governance / key custody is outside this lab.
+
+See `INCIDENT_RUNBOOK.md` for the response sequence and tooling.
