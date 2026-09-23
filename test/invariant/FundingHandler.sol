@@ -17,11 +17,7 @@ contract FundingHandler is Test {
 
     function setRate(int64 rawRate) external {
         int256 rate = int256(rawRate);
-        rate = bound(
-            rate,
-            -market.MAX_ABS_RATE_PER_SECOND(),
-            market.MAX_ABS_RATE_PER_SECOND()
-        );
+        rate = bound(rate, -market.MAX_ABS_RATE_PER_SECOND(), market.MAX_ABS_RATE_PER_SECOND());
 
         market.setFundingRate(rate);
     }
