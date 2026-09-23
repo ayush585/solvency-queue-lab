@@ -311,3 +311,64 @@ Still external to the model:
 - market-specific circuit breakers.
 
 Those are future hardening layers.
+
+
+## UUPS / ERC-1967 upgrade safety
+
+Upgradeability adds a privileged code-replacement path, so both authorization and storage compatibility are security-critical.
+
+### Authorization invariant
+
+Only the configured proxy owner may authorize a UUPS implementation change.
+
+The implementation itself cannot be used as an upgrade execution context because OpenZeppelin's UUPS logic requires proxy delegation.
+
+### Initialization invariant
+
+The implementation instance is locked during construction.
+
+The proxy receives initialization calldata during ERC-1967 deployment, preventing a window where an uninitialized proxy could be claimed by a third party.
+
+### Storage-layout invariant
+
+A safe implementation upgrade must preserve every previously allocated storage location.
+
+Safe:
+
+```text
+V1:
+slot 0 owner
+slot 1 collateralFactor
+slot 2 totalLiabilities
+slot 3 mapping
+
+V2:
+same V1 slots
++ appended fields
+```
+
+Unsafe:
+
+```text
+slot 0 NEW FIELD
+slot 1 old owner
+slot 2 old collateralFactor
+...
+```
+
+The unsafe case does not merely produce wrong UI values. It can:
+
+- reinterpret financial state;
+- make existing mapping entries unreachable;
+- corrupt access-control state;
+- lock the legitimate administrator out of recovery.
+
+### UUPS compatibility
+
+A proposed implementation must expose the expected ERC-1822/UUPS interface. A non-UUPS implementation is rejected rather than silently disabling future upgradeability.
+
+### Remaining governance boundary
+
+This milestone intentionally uses a single owner as the upgrade authority.
+
+A production protocol should typically place that authority behind stronger governance such as a multisig, role system, and/or timelock. Delayed upgrade execution is the next governance layer for this lab.

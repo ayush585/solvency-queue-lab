@@ -523,3 +523,88 @@ each at 256 runs / 16,384 calls / 0 reverts
 ```
 
 This milestone follows the same broad pattern used by current perp protocols: cumulative per-position funding checkpoints and oracle-driven collateral/liquidation decisions. It intentionally keeps the rate source and oracle aggregation mechanism outside the lab so those trust boundaries remain explicit rather than implied.
+
+
+## Milestone 8 — UUPS upgrade and storage-layout safety
+
+This milestone uses OpenZeppelin Contracts v5.7.0 with an ERC-1967 proxy and UUPS implementation logic.
+
+`UpgradeVaultV1.sol` stores:
+
+```text
+slot 0: owner
+slot 1: collateralFactorBps
+slot 2: totalLiabilities
+slot 3: balanceOf mapping seed
+slot 4: initialization flag
+```
+
+The implementation instance locks its own initializer in its constructor, while the proxy is initialized atomically through `ERC1967Proxy` constructor calldata.
+
+### Safe V2
+
+`UpgradeVaultV2.sol` preserves every V1 field and appends new guardian/pause state.
+
+Verified after upgrade:
+
+- owner preserved;
+- collateral factor preserved;
+- total liabilities preserved;
+- existing mapping balances preserved;
+- implementation reports V2;
+- new guardian state can initialize once;
+- guardian pause authority works;
+- V2 initializer cannot replay.
+
+### Deliberately bad V2
+
+`BadUpgradeVaultV2.sol` inserts:
+
+```text
+slot 0: emergencyThreshold
+```
+
+before the original V1 state.
+
+That shifts every V1 slot:
+
+```text
+old owner             -> interpreted as emergencyThreshold
+old collateral factor -> interpreted as owner
+old total liabilities -> interpreted as collateralFactor
+old mapping base       -> interpreted as totalLiabilities
+old mapping entries    -> no longer reachable through the new mapping slot
+```
+
+The corruption is severe enough that the original owner can lose authorization to upgrade the proxy back to a safe implementation.
+
+### Upgrade authorization
+
+`_authorizeUpgrade` is owner-gated.
+
+Verified:
+
+- unauthorized account cannot upgrade;
+- upgrade function cannot be used directly on the implementation;
+- non-UUPS targets are rejected by OpenZeppelin's UUPS compatibility check.
+
+### CI storage evidence
+
+CI now runs:
+
+```bash
+forge inspect UpgradeVaultV1 storage-layout
+forge inspect UpgradeVaultV2 storage-layout
+forge inspect BadUpgradeVaultV2 storage-layout
+```
+
+and tests the observed state behavior behind a real ERC-1967 proxy.
+
+### Current full verification
+
+```text
+82 / 82 tests passing
+5 stateful invariant suites
+OpenZeppelin Contracts v5.7.0
+Foundry v1.8.3
+```

@@ -15,14 +15,22 @@ jobs:
         with:
           version: v1.8.3
 
-      - name: Install forge-std
-        run: forge install foundry-rs/forge-std --no-commit
+      - name: Install dependencies
+        run: |
+          forge install foundry-rs/forge-std --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts@v5.7.0 --no-commit
 
       - name: Format check
         run: forge fmt --check
 
       - name: Build
         run: forge build
+
+      - name: Inspect upgrade storage layouts
+        run: |
+          forge inspect UpgradeVaultV1 storage-layout
+          forge inspect UpgradeVaultV2 storage-layout
+          forge inspect BadUpgradeVaultV2 storage-layout
 
       - name: Unit, fuzz and invariant tests
         run: forge test -vv
