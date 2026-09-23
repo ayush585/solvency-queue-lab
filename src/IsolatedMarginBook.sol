@@ -29,18 +29,12 @@ contract IsolatedMarginBook {
     error NotLiquidatable(int256 equity, uint256 maintenanceMargin);
 
     event PositionOpened(
-        address indexed account,
-        int256 sizeUsd,
-        uint256 entryPrice,
-        uint256 collateralUsd
+        address indexed account, int256 sizeUsd, uint256 entryPrice, uint256 collateralUsd
     );
     event CollateralAdded(address indexed account, uint256 amount, uint256 newCollateral);
     event CollateralRemoved(address indexed account, uint256 amount, uint256 newCollateral);
     event Liquidated(
-        address indexed account,
-        uint256 markPrice,
-        int256 equity,
-        uint256 maintenanceMargin
+        address indexed account, uint256 markPrice, int256 equity, uint256 maintenanceMargin
     );
 
     uint256 public immutable initialMarginBps;
@@ -50,8 +44,8 @@ contract IsolatedMarginBook {
 
     constructor(uint256 initialMarginBps_, uint256 maintenanceMarginBps_) {
         if (
-            initialMarginBps_ == 0 || initialMarginBps_ > 10_000
-                || maintenanceMarginBps_ == 0 || maintenanceMarginBps_ >= initialMarginBps_
+            initialMarginBps_ == 0 || initialMarginBps_ > 10_000 || maintenanceMarginBps_ == 0
+                || maintenanceMarginBps_ >= initialMarginBps_
         ) revert InvalidMarginConfiguration();
 
         initialMarginBps = initialMarginBps_;
@@ -61,15 +55,16 @@ contract IsolatedMarginBook {
     function openPosition(int256 sizeUsd, uint256 entryPrice, uint256 collateralUsd) external {
         if (positions[msg.sender].open) revert PositionAlreadyOpen();
         if (sizeUsd == 0 || entryPrice == 0 || collateralUsd == 0) revert InvalidPosition();
-        if (
-            PerpRisk.notional(sizeUsd) > MAX_NOTIONAL_USD || entryPrice > MAX_PRICE
-        ) revert RiskInputTooLarge();
+        if (PerpRisk.notional(sizeUsd) > MAX_NOTIONAL_USD || entryPrice > MAX_PRICE) {
+            revert RiskInputTooLarge();
+        }
 
         uint256 required = PerpRisk.marginRequirement(sizeUsd, initialMarginBps);
         if (collateralUsd < required) revert InitialMarginTooLow(required, collateralUsd);
 
-        positions[msg.sender] =
-            Position({sizeUsd: sizeUsd, entryPrice: entryPrice, collateralUsd: collateralUsd, open: true});
+        positions[msg.sender] = Position({
+            sizeUsd: sizeUsd, entryPrice: entryPrice, collateralUsd: collateralUsd, open: true
+        });
 
         emit PositionOpened(msg.sender, sizeUsd, entryPrice, collateralUsd);
     }
