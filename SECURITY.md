@@ -2,7 +2,7 @@
 
 This repository is a training lab, not production financial software.
 
-## Asset / claim invariant
+## Pool solvency
 
 For each supported token:
 
@@ -10,110 +10,104 @@ For each supported token:
 sum(user internal claims) <= ERC20.balanceOf(pool)
 ```
 
-The vulnerable Pool violates this when it trusts the requested transfer amount for a fee-on-transfer token.
+Deposits credit observed assets, failed withdrawals preserve claims atomically, and privileged withdrawal/settlement operators are explicit trust boundaries.
 
-## Pool rules
+## Signed withdrawals
 
-1. Deposits credit only the observed balance delta.
-2. A failed withdrawal must not reduce the user's internal claim.
-3. A successful withdrawal must reduce Pool assets and increase recipient assets by exactly the debited claim.
-4. Non-standard outgoing transfer behavior is rejected atomically.
-5. Direct users can withdraw only their own claim.
-6. `withdrawFor` is restricted to explicit withdrawal operators.
+The hardened EIP-712 flow binds user, token, recipient, amount, nonce, deadline, chain ID, and verifying contract.
 
-## Signed-withdrawal rules
+A successful signed authorization consumes exactly one nonce. Failed downstream execution rolls that state change back.
 
-The hardened EIP-712 authorization binds:
-
-- user
-- token
-- recipient
-- amount
-- nonce
-- deadline
-- chain ID
-- verifying contract
+## Forced-withdrawal queue
 
 Security properties:
 
-1. The recovered signer must equal `request.user`.
-2. The request nonce must equal the current per-user nonce.
-3. Every successful signed withdrawal increments that nonce exactly once.
-4. A failed Pool withdrawal must roll the nonce increment back atomically.
-5. Expired requests do not consume a nonce.
-6. A signature for another contract or chain is invalid.
-7. High-s ECDSA signatures are rejected.
-8. The transaction sender is only a relayer; authorization comes from the signature.
+1. cursor never decreases;
+2. cursor never exceeds request count;
+3. attempted entries are terminal: Processed or Failed;
+4. unattempted entries remain Pending;
+5. failed Pool execution preserves the user's claim;
+6. one failing recipient cannot permanently block later requests;
+7. failed requests remain retryable;
+8. processed requests cannot replay;
+9. processing/retry entrypoints are non-reentrant.
 
-## Forced-withdrawal queue rules
+## Sequencer settlement
 
-The queue exists to preserve global withdrawal progress when individual requests fail.
+A strict batch nonce provides ordering and replay protection. It does **not** prove that credits are backed, that P/L is economically valid, or that off-chain trades actually occurred.
 
-Security properties:
+`VulnerableSettlementVerifier.sol` deliberately demonstrates that distinction.
 
-1. `nextToProcess` never decreases.
-2. `nextToProcess <= requestCount`.
-3. Every entry behind the cursor is terminal: `Processed` or `Failed`.
-4. Every unattempted entry ahead of the cursor remains `Pending`.
-5. A failed request does not destroy the user's Pool claim.
-6. A failed request cannot stop later valid requests from being attempted.
-7. A failed request remains retryable.
-8. A processed request cannot be retried.
-9. Processing and retry entrypoints are non-reentrant.
-10. Successful payouts and outstanding claims must conserve deposited value.
+### Hardened lab model
 
-### Why failure isolation matters
+`DepositInbox` creates a deposit receipt only after the exact corresponding token amount reaches Pool. The receipt is one-time consumable.
 
-The deliberately vulnerable queue performs:
+`SettlementVerifier` requires:
 
-```text
-withdraw head
--> if success: increment cursor
-```
+- exact sequential batch nonce;
+- sequencer authorization;
+- backed one-time deposit receipts;
+- zero-sum P/L in the lab's closed accounting model.
 
-A recipient-specific token revert therefore leaves the cursor unchanged and freezes all later users.
+All batch state is atomic. If a later P/L application fails, the batch nonce, deposit-receipt consumption, and earlier credits roll back together.
 
-The hardened queue performs:
+### Closed-system P/L limitation
+
+The invariant:
 
 ```text
-mark Processing
--> advance cursor
--> try Pool withdrawal
-   -> success: Processed
-   -> revert:  Failed
+sum P/L deltas == 0
 ```
 
-The failed Pool call reverts its own state changes, so the user's claim remains in the Pool while the queue itself retains global progress.
+is not intended as a universal perpetual-DEX formula.
 
-### Retry model
+Production perp settlement must explicitly model value flows involving trading fees, funding payments, liquidation fees, insurance funds, LP / market-maker counterparties, protocol revenue, and bad debt / socialized loss.
 
-Retries operate on failed entries directly and do not move the FIFO cursor. If the original failure condition disappears, the request can later transition from `Failed` to `Processed`.
+The next accounting milestone should turn those into explicit system accounts and conservation equations.
 
 ## Deliberately vulnerable references
 
-- `VulnerablePool.sol`: credits requested deposit amount instead of received assets.
-- `VulnerableWithdrawalManager.sol`: signs a nonce but never enforces it.
-- `VulnerableForcedWithdrawalQueue.sol`: lets one failing FIFO head freeze every later request.
+- `VulnerablePool.sol`: unbacked fee-on-transfer deposit accounting.
+- `VulnerableWithdrawalManager.sol`: signed nonce without replay enforcement.
+- `VulnerableForcedWithdrawalQueue.sol`: FIFO head-of-line blocking.
+- `VulnerableSettlementVerifier.sol`: sequential batches that can still create arbitrary liabilities.
 
-## Current trust boundaries
+## Trust boundaries
 
-- The Pool owner can authorize or revoke withdrawal operators.
-- Each authorized operator can call `withdrawFor` and is therefore security-critical.
-- The blacklist token mock has a privileged owner that can change recipient blacklist state.
-- The hardened queue catches Pool execution failure generically; it does not yet classify or bound every possible external-call failure mode.
+- Pool owner controls operator authorization.
+- Withdrawal operators can execute user claims and must authenticate correctly.
+- Settlement operators can change internal claims and therefore require batch-level economic validation.
+- DepositInbox owner selects its one-time consumer.
+- The sequencer remains trusted to provide valid trade results within the invariants enforced on-chain.
+- The lab does not prove off-chain trade execution correctness.
+
+## Current invariant evidence
+
+Three independent stateful suites currently cover Pool accounting, queue liveness, and settlement conservation.
+
+Each runs:
+
+```text
+256 invariant runs
+16,384 randomized handler calls
+0 handler reverts
+```
+
+on the verified CI head.
 
 ## Deliberate limitations
 
 Not yet implemented:
 
-- reserved balances for queued requests;
-- bounded-gas external processing;
-- stored failure-reason classification;
-- reentrancy-specific malicious token mocks;
-- false-returning / malformed ERC-20 mocks;
-- upgradeability;
-- cross-chain settlement state;
-- account abstraction / passkeys;
-- formal verification.
+- real perp position accounting;
+- mark/index prices and oracle validation;
+- funding;
+- maintenance margin;
+- liquidation;
+- insurance fund / bad debt;
+- Base fork state;
+- UUPS storage layouts and upgrade authorization;
+- formal verification;
+- cross-chain message proofs.
 
 Those are subsequent milestones.
