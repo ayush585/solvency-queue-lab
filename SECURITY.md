@@ -173,3 +173,85 @@ liquidation equity < 0
 ```
 
 Until that layer exists, the module must not be described as a production liquidation engine.
+
+
+## Liquidation loss waterfall
+
+The clearing-house milestone converts abstract liquidation equity into actual token movements.
+
+### Solvent liquidation invariant
+
+For positive liquidation equity:
+
+```text
+collateral
+=
+realized loss paid to counterparty
++
+liquidation fee retained as insurance
++
+trader residual
+```
+
+The fee is capped by positive equity, so liquidation cannot create a negative trader payout.
+
+### Bankruptcy invariant
+
+For negative equity:
+
+```text
+bad debt
+=
+insurance coverage
++
+uncovered bad debt
+```
+
+and:
+
+```text
+counterparty payout
+=
+all trader collateral
++
+insurance coverage
+```
+
+The protocol does not fabricate settlement assets to erase a deficit.
+
+### Asset conservation
+
+Under the stateful harness:
+
+```text
+clearing-house ERC-20 balance
+=
+total open collateral
++
+insurance balance
+```
+
+and every minted settlement token remains located in one of:
+
+- clearing house;
+- explicit counterparty;
+- trader wallets;
+- invariant handler during funding setup.
+
+### Bad-debt monotonicity
+
+The current model has no debt-resolution path.
+
+Therefore:
+
+```text
+uncoveredBadDebt(t + 1) >= uncoveredBadDebt(t)
+```
+
+must hold.
+
+A future ADL / recapitalization mechanism must make any decrease explicit and separately conserved.
+
+### Trust boundary
+
+The fixed `counterparty` address represents the winning-side/system settlement recipient. That is a deliberate simplification: a production matching engine must prove which counterparties are owed realized P/L rather than routing all losses to one address.
