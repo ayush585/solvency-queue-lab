@@ -9,7 +9,7 @@ import {WithdrawalManager} from "../src/WithdrawalManager.sol";
 
 contract WithdrawalManagerTest is Test {
     uint256 internal constant ALICE_PK = 0xA11CE;
-    uint256 internal constant SECP256K1_ORDER =
+    uint256 internal constant SECP256K1_N =
         0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
 
     Pool internal pool;
@@ -165,7 +165,7 @@ contract WithdrawalManagerTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ALICE_PK, requestDigest);
 
-        bytes32 highS = bytes32(SECP256K1_ORDER - uint256(s));
+        bytes32 highS = bytes32(SECP256K1_N - uint256(s));
         uint8 flippedV = v == 27 ? 28 : 27;
         bytes memory malleableSignature = abi.encodePacked(r, highS, flippedV);
 
